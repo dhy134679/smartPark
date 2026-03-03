@@ -138,6 +138,7 @@
           canvas-id="parkingMap"
           id="parkingMap"
           class="parking-canvas"
+          :style="canvasStyle"
           @click="onCanvasClick"
         ></canvas>
       </view>
@@ -185,6 +186,16 @@
             <text class="info-label">步数</text>
             <text class="info-value">{{ routePath.length }} 步</text>
           </view>
+          <view class="info-item">
+            <text class="info-label">预计用时</text>
+            <text class="info-value">{{ estimatedMinutes }} 分钟</text>
+          </view>
+        </view>
+        <view class="tip-text">* 小程序使用静态地图引导，不依赖实时定位。</view>
+        <view class="instruction-list">
+          <view class="instruction-item" v-for="(item, idx) in routeInstructions" :key="idx">
+            {{ idx + 1 }}. {{ item }}
+          </view>
         </view>
       </view>
     </view>
@@ -196,6 +207,7 @@ import { request } from '@/utils/request.js'
 import { getUser } from '@/utils/auth.js'
 
 const GRID_SIZE = 28
+const SAFE_PADDING = 24
 const COLORS = {
   background: '#f0f2f5',
   road: '#e8eaed',
@@ -241,7 +253,10 @@ export default {
       selectedZone: '全部',
       selectedSpot: null,
       routePath: [],
-      preSelectedSpotId: null
+      preSelectedSpotId: null,
+      cellSize: GRID_SIZE,
+      canvasWidth: 0,
+      canvasHeight: 0
     }
   },
   computed: {
@@ -254,6 +269,46 @@ export default {
     filteredFreeSpots() {
       if (this.selectedZone === '全部') return this.freeSpots
       return this.freeSpots.filter((spot) => spot.zone === this.selectedZone)
+    },
+    estimatedMinutes() {
+      if (this.routePath.length <= 1) return 0
+      const walkingSpeedStepPerMinute = 75
+      return Math.max(1, Math.ceil((this.routePath.length - 1) / walkingSpeedStepPerMinute))
+    },
+    canvasStyle() {
+      return `width:${this.canvasWidth}px;height:${this.canvasHeight}px;`
+    },
+    routeInstructions() {
+      if (this.routePath.length <= 1) return []
+      const instructions = []
+      let prevDirection = ''
+      let stepCount = 0
+
+      for (let idx = 1; idx < this.routePath.length; idx++) {
+        const prev = this.routePath[idx - 1]
+        const current = this.routePath[idx]
+        const direction = this.getDirection(prev, current)
+
+        if (!prevDirection) {
+          prevDirection = direction
+          stepCount = 1
+          continue
+        }
+
+        if (direction === prevDirection) {
+          stepCount += 1
+        } else {
+          instructions.push(`向${prevDirection}直行 ${stepCount} 步`)
+          prevDirection = direction
+          stepCount = 1
+        }
+      }
+
+      if (stepCount > 0) {
+        instructions.push(`向${prevDirection}直行 ${stepCount} 步`)
+      }
+      instructions.push('到达目标车位附近，请减速并观察车位编号')
+      return instructions
     }
   },
   onLoad(options) {
@@ -509,6 +564,24 @@ export default {
     filterZone(zone) {
       this.selectedZone = zone
     },
+    // 计算方向文本（用于静态路线说明）
+    getDirection(from, to) {
+      if (to.x > from.x) return '右'
+      if (to.x < from.x) return '左'
+      if (to.y > from.y) return '下'
+      return '上'
+    },
+    // 根据屏幕宽度动态计算画布尺寸，避免不同机型上被裁切
+    updateCanvasSize() {
+      const systemInfo = uni.getSystemInfoSync()
+      const containerWidth = systemInfo.windowWidth - SAFE_PADDING
+      const gw = this.mapInfo?.width || 24
+      const gh = this.mapInfo?.height || 18
+      const nextCellSize = Math.max(12, Math.floor(containerWidth / gw))
+      this.cellSize = nextCellSize
+      this.canvasWidth = gw * nextCellSize
+      this.canvasHeight = gh * nextCellSize
+    },
     selectSpot(spot) {
       this.selectedSpot = spot
       this.planRoute()
@@ -518,6 +591,7 @@ export default {
         const res = await request({ url: '/navigation/map' })
         this.mapInfo = res.data
         this.allSpots = res.data.spots || []
+        this.updateCanvasSize()
 
         if (this.preSelectedSpotId) {
           const target = this.allSpots.find((spot) => spot.id === this.preSelectedSpotId)
@@ -550,16 +624,17 @@ export default {
       const ctx = uni.createCanvasContext('parkingMap', this)
       const gw = this.mapInfo?.width || 24
       const gh = this.mapInfo?.height || 18
-      const width = gw * GRID_SIZE
-      const height = gh * GRID_SIZE
+      const size = this.cellSize || GRID_SIZE
+      const width = gw * size
+      const height = gh * size
 
       ctx.setFillStyle(COLORS.background)
       ctx.fillRect(0, 0, width, height)
 
       ctx.setFillStyle('#e8eaed')
-      ctx.fillRect(0, 3 * GRID_SIZE - 4, width, GRID_SIZE + 8)
-      ctx.fillRect(0, 10 * GRID_SIZE - 4, width, GRID_SIZE + 8)
-      ctx.fillRect(12 * GRID_SIZE - 4, 0, GRID_SIZE + 8, height)
+      ctx.fillRect(0, 3 * size - 4, width, size + 8)
+      ctx.fillRect(0, 10 * size - 4, width, size + 8)
+      ctx.fillRect(12 * size - 4, 0, size + 8, height)
 
       if (this.routePath.length > 1) {
         ctx.setStrokeStyle(COLORS.route)
@@ -568,28 +643,28 @@ export default {
         ctx.setLineJoin('round')
         ctx.beginPath()
         const first = this.routePath[0]
-        ctx.moveTo(first.x * GRID_SIZE + GRID_SIZE / 2, first.y * GRID_SIZE + GRID_SIZE / 2)
+        ctx.moveTo(first.x * size + size / 2, first.y * size + size / 2)
         for (let idx = 1; idx < this.routePath.length; idx++) {
           const point = this.routePath[idx]
-          ctx.lineTo(point.x * GRID_SIZE + GRID_SIZE / 2, point.y * GRID_SIZE + GRID_SIZE / 2)
+          ctx.lineTo(point.x * size + size / 2, point.y * size + size / 2)
         }
         ctx.stroke()
 
         ctx.setFillStyle(COLORS.entry)
         ctx.beginPath()
-        ctx.arc(first.x * GRID_SIZE + GRID_SIZE / 2, first.y * GRID_SIZE + GRID_SIZE / 2, 8, 0, Math.PI * 2)
+        ctx.arc(first.x * size + size / 2, first.y * size + size / 2, 8, 0, Math.PI * 2)
         ctx.fill()
 
         const last = this.routePath[this.routePath.length - 1]
         ctx.setFillStyle(COLORS.routeHead)
         ctx.beginPath()
-        ctx.arc(last.x * GRID_SIZE + GRID_SIZE / 2, last.y * GRID_SIZE + GRID_SIZE / 2, 8, 0, Math.PI * 2)
+        ctx.arc(last.x * size + size / 2, last.y * size + size / 2, 8, 0, Math.PI * 2)
         ctx.fill()
       }
 
       this.allSpots.forEach((spot) => {
-        const centerX = spot.x_pos * GRID_SIZE + GRID_SIZE / 2
-        const centerY = spot.y_pos * GRID_SIZE + GRID_SIZE / 2
+        const centerX = spot.x_pos * size + size / 2
+        const centerY = spot.y_pos * size + size / 2
         const selected = this.selectedSpot && this.selectedSpot.id === spot.id
 
         ctx.setFillStyle(
@@ -601,9 +676,9 @@ export default {
                 ? COLORS.reserved
                 : COLORS.occupied
         )
-        const size = selected ? GRID_SIZE - 4 : GRID_SIZE - 6
-        const offset = (GRID_SIZE - size) / 2
-        ctx.fillRect(spot.x_pos * GRID_SIZE + offset, spot.y_pos * GRID_SIZE + offset, size, size)
+        const spotSize = selected ? size - 4 : size - 6
+        const offset = (size - spotSize) / 2
+        ctx.fillRect(spot.x_pos * size + offset, spot.y_pos * size + offset, spotSize, spotSize)
 
         ctx.setFillStyle('#fff')
         ctx.setFontSize(8)
@@ -616,13 +691,14 @@ export default {
       ctx.setFillStyle(COLORS.entry)
       ctx.setFontSize(12)
       ctx.setTextAlign('center')
-      ctx.fillText('入口', entry[0] * GRID_SIZE + GRID_SIZE / 2, entry[1] * GRID_SIZE + GRID_SIZE / 2)
+      ctx.fillText('入口', entry[0] * size + size / 2, entry[1] * size + size / 2)
 
       ctx.draw()
     },
     onCanvasClick(event) {
-      const x = Math.floor(event.detail.x / GRID_SIZE)
-      const y = Math.floor(event.detail.y / GRID_SIZE)
+      const size = this.cellSize || GRID_SIZE
+      const x = Math.floor(event.detail.x / size)
+      const y = Math.floor(event.detail.y / size)
       const clicked = this.allSpots.find(
         (spot) =>
           Math.round(spot.x_pos) === x &&
@@ -862,6 +938,26 @@ export default {
 .route-info {
   display: flex;
   justify-content: space-around;
+}
+
+
+.tip-text {
+  margin-top: 16rpx;
+  color: #666;
+  font-size: 22rpx;
+}
+
+.instruction-list {
+  margin-top: 12rpx;
+  background: #f7f9fc;
+  border-radius: 12rpx;
+  padding: 12rpx 16rpx;
+}
+
+.instruction-item {
+  font-size: 24rpx;
+  color: #333;
+  line-height: 1.8;
 }
 
 .info-item {
