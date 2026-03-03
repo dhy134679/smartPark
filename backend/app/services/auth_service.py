@@ -181,3 +181,19 @@ async def admin_delete_user(
     await session.commit()
     return True
 
+
+
+async def change_password(
+    session: AsyncSession, user: User, old_password: str, new_password: str
+) -> User:
+    """修改用户密码。"""
+
+    if not verify_password(old_password, user.password_hash):
+        raise ValueError("原密码不正确")
+    if old_password == new_password:
+        raise ValueError("新密码不能与原密码一致")
+
+    user.password_hash = hash_password(new_password)
+    await session.commit()
+    await session.refresh(user)
+    return user

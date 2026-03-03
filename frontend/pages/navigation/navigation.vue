@@ -65,6 +65,12 @@
           <view class="assign-panel">
             <view class="assign-title">车位分配</view>
             <picker
+              :range="assignZones"
+              @change="onAssignZoneChange(item.id, $event)"
+            >
+              <view class="picker">{{ assignZoneLabel(item.id) }}</view>
+            </picker>
+            <picker
               :range="assignableSpots(item.id)"
               range-key="label"
               @change="onAssignSpotChange(item.id, $event)"
@@ -246,6 +252,8 @@ export default {
         { label: '访客', value: 'guest' }
       ],
       assignSelections: {},
+      assignZoneSelections: {},
+      assignZones: ['A', 'B', 'C', 'D'],
       vehicleForms: {},
 
       mapInfo: null,
@@ -473,12 +481,26 @@ export default {
       }
     },
     assignableSpots(userId) {
+      const selectedZone = this.assignZoneSelections[userId]
       return this.spots
         .filter((spot) => spot.owner_id === null || spot.owner_id === userId)
+        .filter((spot) => !selectedZone || spot.zone === selectedZone)
         .map((spot) => ({
           id: spot.id,
           label: `${spot.spot_number} (${spot.zone}区)`
         }))
+    },
+    onAssignZoneChange(userId, event) {
+      const idx = Number(event.detail.value)
+      const zone = this.assignZones[idx]
+      if (!zone) return
+      this.assignZoneSelections[userId] = zone
+      this.assignSelections[userId] = null
+    },
+    assignZoneLabel(userId) {
+      return this.assignZoneSelections[userId]
+        ? `${this.assignZoneSelections[userId]}区`
+        : '请选择目标区域'
     },
     onAssignSpotChange(userId, event) {
       const idx = Number(event.detail.value)

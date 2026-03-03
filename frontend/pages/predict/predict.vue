@@ -12,6 +12,7 @@
 
     <view class="card">
       <view class="title">未来空闲</view>
+      <view class="hint">推荐到场时间：{{ formatMinute(recommendedTime) || '---' }}</view>
       <view class="availability" v-for="item in availability" :key="item.timestamp">
         <text>{{ formatTime(item.timestamp) }}</text>
         <text>{{ item.available }} 个空位</text>
@@ -28,13 +29,23 @@ export default {
     return {
       horizon: 12,
       trend: [],
-      availability: []
+      availability: [],
+      recommendedTime: ""
     }
   },
   onShow() {
     this.loadData()
   },
   methods: {
+    formatMinute(ts) {
+      if (!ts) return ""
+      const date = new Date(ts)
+      const mm = String(date.getMonth() + 1).padStart(2, "0")
+      const dd = String(date.getDate()).padStart(2, "0")
+      const hh = String(date.getHours()).padStart(2, "0")
+      const mi = String(date.getMinutes()).padStart(2, "0")
+      return `${mm}-${dd} ${hh}:${mi}`
+    },
     formatTime(ts) {
       const date = new Date(ts)
       return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:00`
@@ -47,6 +58,7 @@ export default {
         ])
         this.trend = trendRes.data.trend
         this.availability = availabilityRes.data.availability
+        this.recommendedTime = availabilityRes.data.recommended_time
       } catch (error) {
         console.error(error)
       }
