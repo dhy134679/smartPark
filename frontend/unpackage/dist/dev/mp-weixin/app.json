@@ -1,0 +1,43 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/index/index",
+    "pages/spots/spots",
+    "pages/simulate/simulate",
+    "pages/navigation/navigation",
+    "pages/predict/predict",
+    "pages/records/records",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "智能停车场",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f6f7fb"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#2a82e4",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/spots/spots",
+        "text": "车位"
+      },
+      {
+        "pagePath": "pages/navigation/navigation",
+        "text": "导航/管理"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "usingComponents": {}
+}

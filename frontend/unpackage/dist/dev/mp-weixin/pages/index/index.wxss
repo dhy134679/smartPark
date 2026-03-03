@@ -1,0 +1,86 @@
+
+.page.data-v-1cf27b2a {
+  padding: 40rpx 32rpx 80rpx;
+}
+.hero.data-v-1cf27b2a {
+  background: linear-gradient(120deg, #2a82e4, #6a8bff);
+  color: #fff;
+  padding: 40rpx;
+  border-radius: 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hello.data-v-1cf27b2a {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+.username.data-v-1cf27b2a {
+  font-size: 40rpx;
+  font-weight: bold;
+}
+.hero-actions button.data-v-1cf27b2a {
+  margin-left: 16rpx;
+}
+.section-title.data-v-1cf27b2a {
+  margin-top: 40rpx;
+  margin-bottom: 20rpx;
+  font-weight: 600;
+}
+.cards.data-v-1cf27b2a {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20rpx;
+}
+.card.data-v-1cf27b2a {
+  border-radius: 18rpx;
+  padding: 30rpx;
+  background: #fff;
+}
+.card .value.data-v-1cf27b2a {
+  font-size: 36rpx;
+  font-weight: bold;
+}
+.card.primary.data-v-1cf27b2a {
+  border: 2rpx solid #2a82e4;
+}
+.card.success.data-v-1cf27b2a {
+  border: 2rpx solid #30c594;
+}
+.card.danger.data-v-1cf27b2a {
+  border: 2rpx solid #ff7a7a;
+}
+.card.warning.data-v-1cf27b2a {
+  border: 2rpx solid #ffb347;
+}
+.stats.data-v-1cf27b2a {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20rpx;
+}
+.stat-item.data-v-1cf27b2a {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+.stat-value.data-v-1cf27b2a {
+  font-size: 34rpx;
+  font-weight: bold;
+}
+.trend-card.data-v-1cf27b2a {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+.trend-list.data-v-1cf27b2a {
+  margin-top: 20rpx;
+}
+.trend-item.data-v-1cf27b2a {
+  display: flex;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.trend-item.data-v-1cf27b2a:last-child {
+  border-bottom: none;
+}

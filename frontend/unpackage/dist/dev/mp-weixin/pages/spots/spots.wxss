@@ -1,0 +1,35 @@
+
+.page.data-v-efb29473 {
+  padding: 24rpx;
+}
+.filter.data-v-efb29473 {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+.list.data-v-efb29473 {
+  height: calc(100vh - 180rpx);
+}
+.spot-card.data-v-efb29473 {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+.spot-status.free.data-v-efb29473 {
+  color: #30c594;
+}
+.spot-status.occupied.data-v-efb29473 {
+  color: #ff5c5c;
+}
+.spot-status.reserved.data-v-efb29473 {
+  color: #ffa500;
+}
+.coords.data-v-efb29473 {
+  font-size: 26rpx;
+  color: #999;
+}

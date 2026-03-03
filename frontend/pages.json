@@ -1,0 +1,82 @@
+﻿{
+  "pages": [
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "停车概览"
+      }
+    },
+    {
+      "path": "pages/spots/spots",
+      "style": {
+        "navigationBarTitleText": "车位管理"
+      }
+    },
+    {
+      "path": "pages/simulate/simulate",
+      "style": {
+        "navigationBarTitleText": "出入模拟"
+      }
+    },
+    {
+      "path": "pages/navigation/navigation",
+      "style": {
+        "navigationBarTitleText": "导航/管理"
+      }
+    },
+    {
+      "path": "pages/predict/predict",
+      "style": {
+        "navigationBarTitleText": "车位预测"
+      }
+    },
+    {
+      "path": "pages/records/records",
+      "style": {
+        "navigationBarTitleText": "停车记录"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "个人中心"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#2a82e4",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/spots/spots",
+        "text": "车位"
+      },
+      {
+        "pagePath": "pages/navigation/navigation",
+        "text": "导航/管理"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "智能停车场",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f6f7fb"
+  }
+}

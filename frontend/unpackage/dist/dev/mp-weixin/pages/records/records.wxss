@@ -1,0 +1,29 @@
+
+.page.data-v-cb371200 {
+  padding: 24rpx;
+}
+.list.data-v-cb371200 {
+  height: calc(100vh - 100rpx);
+}
+.record-card.data-v-cb371200 {
+  background: #fff;
+  border-radius: 18rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 8rpx 18rpx rgba(0, 0, 0, 0.04);
+}
+.row.data-v-cb371200 {
+  margin-bottom: 12rpx;
+  font-size: 26rpx;
+}
+.row.data-v-cb371200:last-child {
+  margin-bottom: 0;
+}
+.plate.data-v-cb371200 {
+  font-weight: bold;
+}
+.footer.data-v-cb371200 {
+  text-align: center;
+  color: #999;
+  padding: 20rpx 0;
+}
