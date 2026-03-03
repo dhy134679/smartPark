@@ -44,7 +44,7 @@
 
     <view class="section-title">未来空闲预测</view>
     <view class="trend-card">
-      <view class="recommend">推荐到场时间：{{ availability.recommended_time || '---' }}</view>
+      <view class="recommend">推荐到场时间：{{ formatMinute(availability.recommended_time) || '---' }}</view>
       <view class="trend-list">
         <view class="trend-item" v-for="item in availability.availability" :key="item.timestamp">
           <text>{{ formatHour(item.timestamp) }}</text>
@@ -94,7 +94,27 @@ export default {
   },
   methods: {
     goTo(url) {
+      // tabBar 页面必须使用 switchTab，否则会出现“进不去”的问题
+      const tabPages = [
+        '/pages/index/index',
+        '/pages/spots/spots',
+        '/pages/navigation/navigation',
+        '/pages/profile/profile'
+      ]
+      if (tabPages.includes(url)) {
+        uni.switchTab({ url })
+        return
+      }
       uni.navigateTo({ url })
+    },
+    formatMinute(timestamp) {
+      if (!timestamp) return ''
+      const date = new Date(timestamp)
+      const mm = String(date.getMonth() + 1).padStart(2, '0')
+      const dd = String(date.getDate()).padStart(2, '0')
+      const hh = String(date.getHours()).padStart(2, '0')
+      const mi = String(date.getMinutes()).padStart(2, '0')
+      return `${mm}-${dd} ${hh}:${mi}`
     },
     formatHour(timestamp) {
       if (!timestamp) return '--'

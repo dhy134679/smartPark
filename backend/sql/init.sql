@@ -249,6 +249,30 @@ WHERE spot_number = 'A-02';
 UPDATE parking_spots
 SET owner_id = 4
 WHERE spot_number = 'B-01';
+
+
+-- 车位变更申请表（住户申请，管理员审批）
+CREATE TABLE IF NOT EXISTS spot_change_requests (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    current_spot_id INT NULL,
+    target_spot_id INT NULL,
+    target_zone VARCHAR(1) NULL,
+    action VARCHAR(20) NOT NULL DEFAULT 'change',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    reason VARCHAR(200) NULL,
+    reviewer_id INT NULL,
+    review_comment VARCHAR(200) NULL,
+    reviewed_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_scr_user (user_id),
+    INDEX idx_scr_status (status),
+    CONSTRAINT fk_scr_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_scr_current_spot FOREIGN KEY (current_spot_id) REFERENCES parking_spots(id),
+    CONSTRAINT fk_scr_target_spot FOREIGN KEY (target_spot_id) REFERENCES parking_spots(id),
+    CONSTRAINT fk_scr_reviewer FOREIGN KEY (reviewer_id) REFERENCES users(id)
+);
+
 -- ============================================
 -- 验证：查看各表数据量
 -- ============================================

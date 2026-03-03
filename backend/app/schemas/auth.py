@@ -69,3 +69,10 @@ class AdminUserUpdate(BaseModel):
     role: Literal["resident", "admin", "guest"] | None = None
     is_resident: bool | None = None
 
+
+
+class ChangePasswordPayload(BaseModel):
+    """修改密码请求。"""
+
+    old_password: str = Field(..., min_length=6, max_length=64)
+    new_password: str = Field(..., min_length=6, max_length=64)

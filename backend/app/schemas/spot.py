@@ -51,3 +51,38 @@ class SpotSummary(BaseModel):
     occupied: int
     reserved: int
     shared: int
+
+
+class SpotChangeRequestCreate(BaseModel):
+    """住户提交车位变更申请。"""
+
+    action: Literal["assign", "change", "release"] = Field(..., description="申请类型")
+    target_spot_id: int | None = Field(None, description="目标车位ID")
+    target_zone: Literal["A", "B", "C", "D"] | None = Field(None, description="目标区域")
+    reason: str | None = Field(None, max_length=200, description="申请原因")
+
+
+class SpotChangeRequestReview(BaseModel):
+    """管理员审批车位变更申请。"""
+
+    status: Literal["approved", "rejected"]
+    comment: str | None = Field(None, max_length=200)
+
+
+class SpotChangeRequestSchema(BaseModel):
+    """车位变更申请返回。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    current_spot_id: int | None = None
+    target_spot_id: int | None = None
+    target_zone: str | None = None
+    action: str
+    status: str
+    reason: str | None = None
+    reviewer_id: int | None = None
+    review_comment: str | None = None
+    reviewed_at: datetime | None = None
+    created_at: datetime

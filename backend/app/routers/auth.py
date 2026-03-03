@@ -10,7 +10,7 @@ from app.schemas.auth import (
     AdminUserListItem,
     AdminUserUpdate,
     TokenResponse,
-
+    ChangePasswordPayload,
     UserLogin,
     UserProfile,
     UserRegister,
@@ -21,6 +21,7 @@ from app.services.auth_service import (
     admin_delete_user,
     admin_update_user,
     authenticate_user,
+    change_password,
     create_access_token,
     create_user,
     get_user_by_phone,
@@ -219,3 +220,19 @@ async def update_profile(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return success_response({"user": UserProfile.model_validate(updated).model_dump()})
+
+
+@router.put("/change-password")
+async def update_password(
+    payload: ChangePasswordPayload,
+    session: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """修改当前用户密码。"""
+
+    try:
+        await change_password(session, user, payload.old_password, payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return success_response({"updated": True})

@@ -1,84 +1,81 @@
 <template>
   <view class="page">
     <view class="card" v-if="user">
-      <view class="title">个人信息</view>
-      <view>姓名：{{ user.name }}</view>
-      <view>手机号：{{ user.phone }}</view>
-      <view>角色：{{ user.role }}</view>
+      <view class="title">个人中心</view>
+      <view class="form" v-if="!isAdmin">
+        <input class="input" v-model.trim="profileForm.name" placeholder="姓名" />
+        <input class="input" v-model.trim="profileForm.phone" placeholder="手机号" />
+        <button size="mini" type="primary" @click="saveProfile">保存资料</button>
+      </view>
+      <view v-else>
+        <view>管理员账号：{{ user.name }}</view>
+        <view>手机号：{{ user.phone }}</view>
+      </view>
       <button class="ghost" @click="logout">退出登录</button>
     </view>
 
-    <view class="card" v-if="user && user.role !== 'guest'">
+    <view class="card" v-if="user">
+      <view class="title">修改密码</view>
+      <input class="input" password v-model="pwdForm.old_password" placeholder="原密码" />
+      <input class="input" password v-model="pwdForm.new_password" placeholder="新密码（至少6位）" />
+      <button size="mini" type="primary" @click="changePassword">更新密码</button>
+    </view>
+
+    <view class="card" v-if="user && !isAdmin && user.role !== 'guest'">
       <view class="title">绑定车辆</view>
-      <view v-for="item in vehicles" :key="item.id" class="vehicle-item">
+      <view v-for="item in vehicles" :key="item.id" class="row">
+        <text>{{ item.plate_number }} {{ item.brand || '-' }} {{ item.color || '-' }}</text>
+        <button size="mini" type="warn" @click="removeVehicle(item.id)">删除</button>
+      </view>
+      <input class="input" v-model="vehicleForm.plate_number" placeholder="车牌号" />
+      <input class="input" v-model="vehicleForm.brand" placeholder="品牌" />
+      <input class="input" v-model="vehicleForm.color" placeholder="颜色" />
+      <button size="mini" type="primary" @click="addVehicle">添加车辆</button>
+    </view>
+
+    <view class="card" v-if="user && !isAdmin && user.role !== 'guest'">
+      <view class="title">车位变更申请（需管理员审批）</view>
+      <view class="hint">当前车位：{{ mySpots[0]?.spot_number || '暂无' }}</view>
+      <picker :range="actions" @change="onActionChange">
+        <view class="picker">申请类型：{{ actionLabel }}</view>
+      </picker>
+      <picker :range="zones" @change="onZoneChange" v-if="spotAction !== 'release'">
+        <view class="picker">目标区域：{{ targetZone || '请选择区域' }}</view>
+      </picker>
+      <picker :range="targetSpotOptions" range-key="label" @change="onSpotChange" v-if="spotAction !== 'release'">
+        <view class="picker">目标车位：{{ targetSpotLabel }}</view>
+      </picker>
+      <input class="input" v-model.trim="requestReason" placeholder="申请原因（可选）" />
+      <button size="mini" type="primary" @click="submitSpotRequest">提交申请</button>
+
+      <view class="subtitle">我的申请记录</view>
+      <view v-for="item in myRequests" :key="item.id" class="req-item">
+        <text>#{{ item.id }} {{ actionText(item.action) }} {{ statusText(item.status) }}</text>
+        <text class="muted">{{ item.target_zone ? item.target_zone + '区' : '-' }} / {{ item.target_spot_id || '-' }}</text>
+      </view>
+      <view v-if="myRequests.length === 0" class="empty">暂无申请记录</view>
+    </view>
+
+    <view class="card" v-if="isAdmin">
+      <view class="title">审批中心</view>
+      <view class="row" v-for="item in pendingRequests" :key="item.id">
         <view>
-          <view class="plate">{{ item.plate_number }}</view>
-          <view>{{ item.brand || '-' }} / {{ item.color || '-' }}</view>
+          <view>申请人ID: {{ item.user_id }} | {{ actionText(item.action) }}</view>
+          <view class="muted">目标区域: {{ item.target_zone || '-' }}，目标车位ID: {{ item.target_spot_id || '-' }}</view>
         </view>
-        <button size="mini" type="warn" @click="removeVehicle(item.id)">解绑</button>
-      </view>
-      <view class="form">
-        <input class="input" v-model="vehicleForm.plate_number" placeholder="车牌号" />
-        <input class="input" v-model="vehicleForm.brand" placeholder="品牌" />
-        <input class="input" v-model="vehicleForm.color" placeholder="颜色" />
-        <label class="checkbox">
-          <switch :checked="vehicleForm.is_resident" @change="vehicleForm.is_resident = $event.detail.value" />
-          小区车辆
-        </label>
-        <button type="primary" @click="addVehicle">添加车辆</button>
-      </view>
-    </view>
-
-    <view class="card" v-if="user && user.role !== 'guest' && user.role !== 'admin'">
-      <view class="title">我的车位与共享设置</view>
-      <view v-if="mySpots.length === 0" class="empty">暂无名下车位</view>
-      <view v-for="(spot, index) in mySpots" :key="spot.id" class="spot-card">
-        <view class="spot-header">
-          <text class="plate">车位: {{ spot.spot_number }} ({{ spot.zone }}区)</text>
-          <switch
-            :checked="spot.is_shared"
-            @change="(event) => toggleShare(index, event.detail.value)"
-            color="#2a82e4"
-            style="transform: scale(0.8)"
-          />
-        </view>
-        <view v-if="spot.is_shared" class="share-opts">
-          <view class="share-row">
-            <text>共享开始时间:</text>
-            <input v-model="spot.shared_start" placeholder="YYYY-MM-DD HH:mm:ss" class="share-input" />
-          </view>
-          <view class="share-row">
-            <text>共享结束时间:</text>
-            <input v-model="spot.shared_end" placeholder="YYYY-MM-DD HH:mm:ss" class="share-input" />
-          </view>
-          <button size="mini" type="primary" @click="saveShare(spot)" style="margin-top: 10rpx;">保存时间设置</button>
+        <view>
+          <button size="mini" type="primary" @click="reviewRequest(item.id, 'approved')">通过</button>
+          <button size="mini" type="warn" @click="reviewRequest(item.id, 'rejected')">拒绝</button>
         </view>
       </view>
-    </view>
-
-    <view class="card" v-if="user && user.role !== 'guest' && user.role !== 'admin'">
-      <view class="title">我的找平收益明细</view>
-      <view class="income-total">总计：￥{{ myIncome.total_income || '0.00' }}</view>
-      <view v-for="(log, idx) in myIncome.recent_details" :key="idx" class="income-row">
-        <text>{{ log.time }}</text>
-        <text>{{ log.plate_number }}</text>
-        <text class="income-plus">+{{ log.amount }}</text>
-      </view>
-      <view v-if="!myIncome.recent_details || myIncome.recent_details.length === 0" class="empty">
-        暂无收益记录
-      </view>
-    </view>
-
-    <view class="card quick-links">
-      <button @click="openPage('/pages/records/records')">停车记录</button>
-      <button @click="openPage('/pages/simulate/simulate')">模拟出入</button>
+      <view v-if="pendingRequests.length === 0" class="empty">暂无待审批申请</view>
     </view>
   </view>
 </template>
 
 <script>
 import { request } from '@/utils/request.js'
-import { clearAuth } from '@/utils/auth.js'
+import { clearAuth, getToken, saveAuth } from '@/utils/auth.js'
 
 export default {
   data() {
@@ -86,74 +83,112 @@ export default {
       user: null,
       vehicles: [],
       mySpots: [],
-      myIncome: { total_income: 0, recent_details: [] },
-      vehicleForm: {
-        plate_number: '',
-        brand: '',
-        color: '',
-        is_resident: true
-      }
+      allSpots: [],
+      myRequests: [],
+      pendingRequests: [],
+      profileForm: { name: '', phone: '' },
+      pwdForm: { old_password: '', new_password: '' },
+      vehicleForm: { plate_number: '', brand: '', color: '', is_resident: true },
+      actions: ['新增车位', '更换车位', '释放车位'],
+      spotAction: 'assign',
+      zones: ['A', 'B', 'C', 'D'],
+      targetZone: '',
+      targetSpotId: null,
+      requestReason: ''
+    }
+  },
+  computed: {
+    isAdmin() {
+      return this.user && this.user.role === 'admin'
+    },
+    actionLabel() {
+      return this.actionText(this.spotAction)
+    },
+    targetSpotOptions() {
+      return this.allSpots
+        .filter((item) => item.status === 'free')
+        .filter((item) => !this.targetZone || item.zone === this.targetZone)
+        .map((item) => ({ id: item.id, label: `${item.spot_number} (${item.zone}区)` }))
+    },
+    targetSpotLabel() {
+      const target = this.targetSpotOptions.find((item) => item.id === this.targetSpotId)
+      return target ? target.label : '请选择目标车位'
     }
   },
   onShow() {
     this.loadData()
   },
   methods: {
-    toggleShare(index, value) {
-      if (value) {
-        const now = new Date()
-        const startStr = now.toISOString().replace('T', ' ').slice(0, 19)
-        const endStr = new Date(now.getTime() + 8 * 3600 * 1000)
-          .toISOString()
-          .replace('T', ' ')
-          .slice(0, 19)
-        this.mySpots[index].shared_start = startStr
-        this.mySpots[index].shared_end = endStr
-      } else {
-        this.mySpots[index].shared_start = null
-        this.mySpots[index].shared_end = null
-      }
-      this.mySpots[index].is_shared = value
-      this.saveShare(this.mySpots[index])
+    actionText(action) {
+      if (action === 'assign') return '新增车位'
+      if (action === 'release') return '释放车位'
+      return '更换车位'
     },
-    async saveShare(spot) {
-      try {
-        await request({
-          url: `/spots/${spot.id}/share`,
-          method: 'PUT',
-          data: {
-            is_shared: spot.is_shared,
-            shared_start: spot.shared_start || null,
-            shared_end: spot.shared_end || null
-          }
-        })
-        uni.showToast({ title: '共享设置已保存', icon: 'success' })
-      } catch (error) {
-        uni.showToast({ title: '设置失败', icon: 'none' })
-      }
+    statusText(status) {
+      if (status === 'approved') return '（已通过）'
+      if (status === 'rejected') return '（已拒绝）'
+      return '（待审批）'
+    },
+    onActionChange(event) {
+      const idx = Number(event.detail.value)
+      const map = ['assign', 'change', 'release']
+      this.spotAction = map[idx] || 'assign'
+    },
+    onZoneChange(event) {
+      const idx = Number(event.detail.value)
+      this.targetZone = this.zones[idx] || ''
+      this.targetSpotId = null
+    },
+    onSpotChange(event) {
+      const idx = Number(event.detail.value)
+      const target = this.targetSpotOptions[idx]
+      this.targetSpotId = target ? target.id : null
     },
     async loadData() {
       try {
-        const [profile, vehicles] = await Promise.all([
-          request({ url: '/auth/profile' }),
-          request({ url: '/vehicles' })
-        ])
+        const profile = await request({ url: '/auth/profile' })
         this.user = profile.data.user
-        this.vehicles = vehicles.data.items
+        this.profileForm = { name: this.user.name, phone: this.user.phone }
+        if (this.isAdmin) {
+          const reqRes = await request({ url: '/spots/change-requests?status=pending' })
+          this.pendingRequests = reqRes.data.items || []
+          return
+        }
 
-        if (this.user.role !== 'guest' && this.user.role !== 'admin') {
-          const [spotsRes, incomeRes] = await Promise.all([
+        if (this.user.role !== 'guest') {
+          const [vehiclesRes, mySpotsRes, spotsRes, myReqRes] = await Promise.all([
+            request({ url: '/vehicles' }),
             request({ url: '/spots/my' }),
-            request({ url: '/spots/my/income' })
+            request({ url: '/spots' }),
+            request({ url: '/spots/change-requests/my' })
           ])
-          this.mySpots = spotsRes.data.items
-          this.myIncome = incomeRes.data
+          this.vehicles = vehiclesRes.data.items || []
+          this.mySpots = mySpotsRes.data.items || []
+          this.allSpots = spotsRes.data.items || []
+          this.myRequests = myReqRes.data.items || []
         }
       } catch (error) {
         console.error(error)
-        if (error?.statusCode === 401) {
-          this.logout()
-        }
+        if (error?.statusCode === 401) this.logout()
+      }
+    },
+    async saveProfile() {
+      try {
+        const res = await request({ url: '/auth/profile', method: 'PUT', data: this.profileForm })
+        this.user = res.data.user
+        saveAuth(getToken(), this.user)
+        uni.showToast({ title: '资料已更新', icon: 'success' })
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    async changePassword() {
+      try {
+        await request({ url: '/auth/change-password', method: 'PUT', data: this.pwdForm })
+        this.pwdForm = { old_password: '', new_password: '' }
+        uni.showToast({ title: '密码已更新', icon: 'success' })
+      } catch (error) {
+        console.error(error)
       }
     },
     async addVehicle() {
@@ -161,148 +196,60 @@ export default {
         uni.showToast({ title: '请输入车牌号', icon: 'none' })
         return
       }
-      try {
-        await request({ url: '/vehicles', method: 'POST', data: this.vehicleForm })
-        uni.showToast({ title: '添加成功', icon: 'success' })
-        this.vehicleForm = { plate_number: '', brand: '', color: '', is_resident: true }
-        this.loadData()
-      } catch (error) {
-        console.error(error)
-      }
+      await request({ url: '/vehicles', method: 'POST', data: this.vehicleForm })
+      this.vehicleForm = { plate_number: '', brand: '', color: '', is_resident: true }
+      await this.loadData()
     },
-    async removeVehicle(id) {
-      try {
-        await request({ url: `/vehicles/${id}`, method: 'DELETE' })
-        this.loadData()
-      } catch (error) {
-        console.error(error)
+    async removeVehicle(vehicleId) {
+      await request({ url: `/vehicles/${vehicleId}`, method: 'DELETE' })
+      await this.loadData()
+    },
+    async submitSpotRequest() {
+      if (this.spotAction !== 'release' && !this.targetSpotId) {
+        uni.showToast({ title: '请选择目标车位', icon: 'none' })
+        return
       }
+      await request({
+        url: '/spots/change-requests',
+        method: 'POST',
+        data: {
+          action: this.spotAction,
+          target_spot_id: this.spotAction === 'release' ? null : this.targetSpotId,
+          target_zone: this.spotAction === 'release' ? null : this.targetZone,
+          reason: this.requestReason || null
+        }
+      })
+      uni.showToast({ title: '申请已提交', icon: 'success' })
+      this.requestReason = ''
+      this.targetSpotId = null
+      await this.loadData()
+    },
+    async reviewRequest(requestId, status) {
+      await request({
+        url: `/spots/change-requests/${requestId}/review`,
+        method: 'PUT',
+        data: { status }
+      })
+      uni.showToast({ title: '审批完成', icon: 'success' })
+      await this.loadData()
     },
     logout() {
       clearAuth()
       uni.reLaunch({ url: '/pages/login/login' })
-    },
-    openPage(url) {
-      uni.navigateTo({ url })
     }
   }
 }
 </script>
 
 <style scoped>
-.page {
-  padding: 24rpx;
-}
-
-.card {
-  background: #fff;
-  border-radius: 18rpx;
-  padding: 24rpx;
-  margin-bottom: 24rpx;
-}
-
-.title {
-  font-size: 32rpx;
-  margin-bottom: 16rpx;
-}
-
-.vehicle-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #f0f0f0;
-  padding: 16rpx 0;
-}
-
-.vehicle-item:last-child {
-  border-bottom: none;
-}
-
-.input {
-  background: #f4f6fb;
-  border-radius: 12rpx;
-  padding: 16rpx;
-  margin-bottom: 12rpx;
-}
-
-.checkbox {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12rpx;
-}
-
-.quick-links button {
-  margin-right: 16rpx;
-}
-
-.ghost {
-  margin-top: 20rpx;
-  color: #ff5c5c;
-}
-
-.spot-card {
-  padding: 20rpx;
-  background: #fafafa;
-  border-radius: 12rpx;
-  margin-bottom: 20rpx;
-  border: 1px solid #eee;
-}
-
-.spot-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12rpx;
-}
-
-.share-opts {
-  background: #fdfdfd;
-  padding: 16rpx;
-  border-radius: 8rpx;
-  margin-top: 10rpx;
-}
-
-.share-row {
-  display: flex;
-  align-items: center;
-  font-size: 26rpx;
-  margin-bottom: 16rpx;
-}
-
-.share-input {
-  flex: 1;
-  margin-left: 20rpx;
-  border-bottom: 1px solid #ddd;
-  padding: 4rpx;
-  font-size: 24rpx;
-}
-
-.income-total {
-  font-size: 36rpx;
-  color: #ff5c5c;
-  font-weight: 600;
-  margin-bottom: 20rpx;
-}
-
-.income-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16rpx 0;
-  border-bottom: 1px solid #f2f2f2;
-  font-size: 26rpx;
-}
-
-.income-row:last-child {
-  border-bottom: none;
-}
-
-.income-plus {
-  color: #4cd964;
-}
-
-.empty {
-  color: #999;
-  font-size: 24rpx;
-}
+.page { padding: 24rpx; }
+.card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 24rpx; }
+.title { font-size: 32rpx; font-weight: 600; margin-bottom: 12rpx; }
+.subtitle { margin-top: 16rpx; font-size: 28rpx; font-weight: 600; }
+.input, .picker { background: #f4f6fb; border-radius: 10rpx; padding: 14rpx; margin-top: 10rpx; }
+.row { display: flex; justify-content: space-between; align-items: center; padding: 10rpx 0; border-bottom: 1px solid #f0f0f0; }
+.row:last-child { border-bottom: none; }
+.hint, .muted, .empty { color: #888; font-size: 24rpx; margin-top: 8rpx; }
+.req-item { padding: 8rpx 0; }
+.ghost { margin-top: 12rpx; }
 </style>
