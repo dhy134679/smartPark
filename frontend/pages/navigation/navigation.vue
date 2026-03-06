@@ -39,92 +39,8 @@
           </view>
 
           <view class="user-actions">
-            <button size="mini" @click="startEdit(item)">编辑</button>
+            <button size="mini" type="primary" @click="goToEdit(item.id)">编辑</button>
             <button size="mini" type="warn" @click="deleteUser(item)">删除</button>
-          </view>
-
-          <view v-if="editingUserId === item.id" class="edit-panel">
-            <input class="input" v-model.trim="editForm.name" placeholder="姓名" />
-            <input class="input" v-model.trim="editForm.phone" placeholder="手机号" type="number" />
-            <picker :range="roleOptions" range-key="label" @change="onEditRoleChange">
-              <view class="picker">{{ roleLabel(editForm.role) }}</view>
-            </picker>
-            <label class="switch-row">
-              <switch
-                :checked="editForm.is_resident"
-                @change="editForm.is_resident = $event.detail.value"
-              />
-              <text>是否住户</text>
-            </label>
-            <view class="edit-actions">
-              <button size="mini" type="primary" @click="saveEdit(item.id)">保存</button>
-              <button size="mini" @click="cancelEdit">取消</button>
-            </view>
-          </view>
-
-          <view class="assign-panel">
-            <view class="assign-title">车位分配</view>
-            <picker
-              :range="assignZones"
-              @change="onAssignZoneChange(item.id, $event)"
-            >
-              <view class="picker">{{ assignZoneLabel(item.id) }}</view>
-            </picker>
-            <picker
-              :range="assignableSpots(item.id)"
-              range-key="label"
-              @change="onAssignSpotChange(item.id, $event)"
-            >
-              <view class="picker">{{ assignLabel(item.id) }}</view>
-            </picker>
-            <button size="mini" type="primary" @click="assignSpot(item.id)">分配车位</button>
-
-            <view class="owned-list" v-if="ownedSpots(item.id).length > 0">
-              <view v-for="spot in ownedSpots(item.id)" :key="spot.id" class="owned-item">
-                <text>{{ spot.spot_number }}</text>
-                <button size="mini" @click="releaseSpot(spot.id)">释放</button>
-              </view>
-            </view>
-            <view class="empty" v-else>当前无分配车位</view>
-          </view>
-
-          <view class="vehicle-panel">
-            <view class="assign-title">车辆管理</view>
-            <view class="owned-list" v-if="userVehicles(item.id).length > 0">
-              <view v-for="vehicle in userVehicles(item.id)" :key="vehicle.id" class="owned-item">
-                <text>{{ vehicle.plate_number }} {{ vehicle.brand || '-' }} {{ vehicle.color || '-' }}</text>
-                <button size="mini" type="warn" @click="deleteVehicleForUser(vehicle.id)">删除</button>
-              </view>
-            </view>
-            <view class="empty" v-else>当前无绑定车辆</view>
-
-            <view class="vehicle-form">
-              <input
-                class="input"
-                v-model.trim="vehicleForm(item.id).plate_number"
-                placeholder="车牌号"
-              />
-              <input
-                class="input"
-                v-model.trim="vehicleForm(item.id).brand"
-                placeholder="品牌"
-              />
-              <input
-                class="input"
-                v-model.trim="vehicleForm(item.id).color"
-                placeholder="颜色"
-              />
-              <label class="switch-row">
-                <switch
-                  :checked="vehicleForm(item.id).is_resident"
-                  @change="vehicleForm(item.id).is_resident = $event.detail.value"
-                />
-                <text>小区车辆</text>
-              </label>
-              <button size="mini" type="primary" @click="addVehicleForUser(item.id)">
-                添加车辆
-              </button>
-            </view>
           </view>
         </view>
       </view>
@@ -231,30 +147,6 @@ export default {
       user: null,
       keyword: '',
       users: [],
-      spots: [],
-      vehicles: [],
-      createForm: {
-        name: '',
-        phone: '',
-        password: ''
-      },
-      createLoading: false,
-      editingUserId: null,
-      editForm: {
-        name: '',
-        phone: '',
-        role: 'resident',
-        is_resident: true
-      },
-      roleOptions: [
-        { label: '住户', value: 'resident' },
-        { label: '管理员', value: 'admin' },
-        { label: '访客', value: 'guest' }
-      ],
-      assignSelections: {},
-      assignZoneSelections: {},
-      assignZones: ['A', 'B', 'C', 'D'],
-      vehicleForms: {},
 
       mapInfo: null,
       allSpots: [],
@@ -330,6 +222,11 @@ export default {
       uni.reLaunch({ url: '/pages/login/login' })
       return
     }
+    const navSpotId = uni.getStorageSync('navSpotId')
+    if (navSpotId) {
+      this.preSelectedSpotId = parseInt(navSpotId)
+      uni.removeStorageSync('navSpotId')
+    }
     if (this.isAdmin) {
       this.loadAdminData()
       return
@@ -350,63 +247,21 @@ export default {
       const target = this.roleOptions.find((item) => item.value === role)
       return target ? target.label : '住户'
     },
-    startEdit(user) {
-      this.editingUserId = user.id
-      this.editForm = {
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        is_resident: user.is_resident
-      }
-    },
-    cancelEdit() {
-      this.editingUserId = null
-      this.editForm = {
-        name: '',
-        phone: '',
-        role: 'resident',
-        is_resident: true
-      }
-    },
-    onEditRoleChange(event) {
-      const idx = Number(event.detail.value)
-      const option = this.roleOptions[idx]
-      if (!option) return
-      this.editForm.role = option.value
-      if (option.value === 'guest') {
-        this.editForm.is_resident = false
-      }
+    goToEdit(id) {
+      uni.navigateTo({
+        url: `/pages/userEdit/userEdit?id=${id}`
+      })
     },
     async loadAdminData() {
       try {
-        const [usersRes, spotsRes, vehiclesRes] = await Promise.all([
-          request({
-            url: '/auth/users',
-            data: this.keyword ? { keyword: this.keyword } : {}
-          }),
-          request({ url: '/spots' }),
-          request({ url: '/vehicles/admin' })
-        ])
+        const usersRes = await request({
+          url: '/auth/users',
+          data: this.keyword ? { keyword: this.keyword } : {}
+        })
         this.users = usersRes.data.items || []
-        this.spots = spotsRes.data.items || []
-        this.vehicles = vehiclesRes.data.items || []
-        this.syncVehicleForms()
       } catch (error) {
         console.error(error)
       }
-    },
-    syncVehicleForms() {
-      const nextForms = {}
-      for (const item of this.users) {
-        const existing = this.vehicleForms[item.id]
-        nextForms[item.id] = existing || {
-          plate_number: '',
-          brand: '',
-          color: '',
-          is_resident: true
-        }
-      }
-      this.vehicleForms = nextForms
     },
     async createUser() {
       if (!this.createForm.name || !this.createForm.phone || !this.createForm.password) {
@@ -429,24 +284,6 @@ export default {
         this.createLoading = false
       }
     },
-    async saveEdit(userId) {
-      if (!this.editForm.name || !this.editForm.phone) {
-        uni.showToast({ title: '姓名和手机号不能为空', icon: 'none' })
-        return
-      }
-      try {
-        await request({
-          url: `/auth/users/${userId}`,
-          method: 'PUT',
-          data: this.editForm
-        })
-        uni.showToast({ title: '保存成功', icon: 'success' })
-        this.cancelEdit()
-        await this.loadAdminData()
-      } catch (error) {
-        console.error(error)
-      }
-    },
     deleteUser(user) {
       uni.showModal({
         title: '确认删除',
@@ -465,122 +302,6 @@ export default {
           }
         }
       })
-    },
-    ownedSpots(userId) {
-      return this.spots.filter((spot) => spot.owner_id === userId)
-    },
-    userVehicles(userId) {
-      return this.vehicles.filter((vehicle) => vehicle.owner_id === userId)
-    },
-    vehicleForm(userId) {
-      return this.vehicleForms[userId] || {
-        plate_number: '',
-        brand: '',
-        color: '',
-        is_resident: true
-      }
-    },
-    assignableSpots(userId) {
-      const selectedZone = this.assignZoneSelections[userId]
-      return this.spots
-        .filter((spot) => spot.owner_id === null || spot.owner_id === userId)
-        .filter((spot) => !selectedZone || spot.zone === selectedZone)
-        .map((spot) => ({
-          id: spot.id,
-          label: `${spot.spot_number} (${spot.zone}区)`
-        }))
-    },
-    onAssignZoneChange(userId, event) {
-      const idx = Number(event.detail.value)
-      const zone = this.assignZones[idx]
-      if (!zone) return
-      this.assignZoneSelections[userId] = zone
-      this.assignSelections[userId] = null
-    },
-    assignZoneLabel(userId) {
-      return this.assignZoneSelections[userId]
-        ? `${this.assignZoneSelections[userId]}区`
-        : '请选择目标区域'
-    },
-    onAssignSpotChange(userId, event) {
-      const idx = Number(event.detail.value)
-      const options = this.assignableSpots(userId)
-      const option = options[idx]
-      if (!option) return
-      this.assignSelections[userId] = option.id
-    },
-    assignLabel(userId) {
-      const spotId = this.assignSelections[userId]
-      if (!spotId) return '请选择可分配车位'
-      const spot = this.spots.find((item) => item.id === spotId)
-      return spot ? `${spot.spot_number} (${spot.zone}区)` : '请选择可分配车位'
-    },
-    async assignSpot(userId) {
-      const spotId = this.assignSelections[userId]
-      if (!spotId) {
-        uni.showToast({ title: '请先选择车位', icon: 'none' })
-        return
-      }
-      try {
-        await request({
-          url: `/spots/${spotId}/owner`,
-          method: 'PUT',
-          data: { owner_id: userId }
-        })
-        uni.showToast({ title: '分配成功', icon: 'success' })
-        await this.loadAdminData()
-      } catch (error) {
-        console.error(error)
-      }
-    },
-    async releaseSpot(spotId) {
-      try {
-        await request({
-          url: `/spots/${spotId}/owner`,
-          method: 'PUT',
-          data: { owner_id: null }
-        })
-        uni.showToast({ title: '已释放', icon: 'success' })
-        await this.loadAdminData()
-      } catch (error) {
-        console.error(error)
-      }
-    },
-    async addVehicleForUser(userId) {
-      const form = this.vehicleForm(userId)
-      if (!form.plate_number) {
-        uni.showToast({ title: '请输入车牌号', icon: 'none' })
-        return
-      }
-      try {
-        await request({
-          url: `/vehicles/admin/users/${userId}`,
-          method: 'POST',
-          data: form
-        })
-        uni.showToast({ title: '车辆添加成功', icon: 'success' })
-        this.vehicleForms[userId] = {
-          plate_number: '',
-          brand: '',
-          color: '',
-          is_resident: true
-        }
-        await this.loadAdminData()
-      } catch (error) {
-        console.error(error)
-      }
-    },
-    async deleteVehicleForUser(vehicleId) {
-      try {
-        await request({
-          url: `/vehicles/admin/${vehicleId}`,
-          method: 'DELETE'
-        })
-        uni.showToast({ title: '车辆已删除', icon: 'success' })
-        await this.loadAdminData()
-      } catch (error) {
-        console.error(error)
-      }
     },
 
     filterZone(zone) {
@@ -620,10 +341,13 @@ export default {
           if (target) {
             this.selectedSpot = target
             await this.planRoute()
+            this.preSelectedSpotId = null
             return
           }
         }
-        this.drawMap()
+        this.$nextTick(() => {
+          this.drawMap()
+        })
       } catch (error) {
         console.error(error)
       }
@@ -650,17 +374,47 @@ export default {
       const width = gw * size
       const height = gh * size
 
+      // 1. 绘制背景（草地/空地颜色）
       ctx.setFillStyle(COLORS.background)
       ctx.fillRect(0, 0, width, height)
 
-      ctx.setFillStyle('#e8eaed')
+      // 2. 绘制主要道路
+      ctx.setFillStyle(COLORS.road)
+      // 横向道路
       ctx.fillRect(0, 3 * size - 4, width, size + 8)
       ctx.fillRect(0, 10 * size - 4, width, size + 8)
+      // 纵向道路
       ctx.fillRect(12 * size - 4, 0, size + 8, height)
 
+      // 3. 绘制车道中心虚线
+      ctx.setStrokeStyle('#bdc3c7')
+      ctx.setLineWidth(2)
+      ctx.setLineDash([10, 10], 0) // 虚线模式
+
+      // 上横向道路虚线
+      ctx.beginPath()
+      ctx.moveTo(0, 3.5 * size)
+      ctx.lineTo(width, 3.5 * size)
+      ctx.stroke()
+
+      // 下横向道路虚线
+      ctx.beginPath()
+      ctx.moveTo(0, 10.5 * size)
+      ctx.lineTo(width, 10.5 * size)
+      ctx.stroke()
+
+      // 纵向道路虚线
+      ctx.beginPath()
+      ctx.moveTo(12.5 * size, 0)
+      ctx.lineTo(12.5 * size, height)
+      ctx.stroke()
+      ctx.setLineDash([], 0) // 恢复实线模式
+
+      // 4. 绘制导航路线（放在地形之上，车位之下）
       if (this.routePath.length > 1) {
-        ctx.setStrokeStyle(COLORS.route)
-        ctx.setLineWidth(4)
+        // 路线发光或投影效果 (简易模拟：画两条，宽的浅色，窄的深色)
+        ctx.setStrokeStyle('rgba(33, 150, 243, 0.3)')
+        ctx.setLineWidth(10)
         ctx.setLineCap('round')
         ctx.setLineJoin('round')
         ctx.beginPath()
@@ -672,6 +426,18 @@ export default {
         }
         ctx.stroke()
 
+        // 核心路线
+        ctx.setStrokeStyle(COLORS.route)
+        ctx.setLineWidth(4)
+        ctx.beginPath()
+        ctx.moveTo(first.x * size + size / 2, first.y * size + size / 2)
+        for (let idx = 1; idx < this.routePath.length; idx++) {
+          const point = this.routePath[idx]
+          ctx.lineTo(point.x * size + size / 2, point.y * size + size / 2)
+        }
+        ctx.stroke()
+
+        // 起点与终点圆点
         ctx.setFillStyle(COLORS.entry)
         ctx.beginPath()
         ctx.arc(first.x * size + size / 2, first.y * size + size / 2, 8, 0, Math.PI * 2)
@@ -684,36 +450,66 @@ export default {
         ctx.fill()
       }
 
+      // 5. 绘制所有车位
       this.allSpots.forEach((spot) => {
-        const centerX = spot.x_pos * size + size / 2
-        const centerY = spot.y_pos * size + size / 2
+        const spotX = spot.x_pos * size
+        const spotY = spot.y_pos * size
+        const centerX = spotX + size / 2
+        const centerY = spotY + size / 2
         const selected = this.selectedSpot && this.selectedSpot.id === spot.id
 
-        ctx.setFillStyle(
-          selected
-            ? COLORS.route
-            : spot.status === 'free'
-              ? COLORS.free
-              : spot.status === 'reserved'
-                ? COLORS.reserved
-                : COLORS.occupied
-        )
-        const spotSize = selected ? size - 4 : size - 6
-        const offset = (size - spotSize) / 2
-        ctx.fillRect(spot.x_pos * size + offset, spot.y_pos * size + offset, spotSize, spotSize)
+        // 车位底框（画车位停车线）
+        ctx.setStrokeStyle('#b0bec5')
+        ctx.setLineWidth(2)
+        ctx.strokeRect(spotX + 2, spotY + 2, size - 4, size - 4)
 
-        ctx.setFillStyle('#fff')
-        ctx.setFontSize(8)
-        ctx.setTextAlign('center')
-        ctx.setTextBaseline('middle')
-        ctx.fillText(spot.spot_number.replace(/^[A-C]-/, ''), centerX, centerY)
+        if (spot.status === 'free') {
+          // 空闲车位：涂上浅绿色背景
+          ctx.setFillStyle(selected ? COLORS.route : COLORS.free)
+          ctx.fillRect(spotX + 4, spotY + 4, size - 8, size - 8)
+          
+          // 写文字
+          ctx.setFillStyle('#fff')
+          ctx.setFontSize(10)
+          ctx.setTextAlign('center')
+          ctx.setTextBaseline('middle')
+          ctx.fillText(spot.spot_number.replace(/^[A-C]-/, ''), centerX, centerY)
+        } else {
+          // 占用车位：绘制一辆小车 (简化的矩形+车窗)
+          const carColor = spot.status === 'reserved' ? COLORS.reserved : COLORS.occupied
+          
+          // 车身
+          ctx.setFillStyle(carColor)
+          ctx.fillRect(spotX + 6, spotY + 4, size - 12, size - 8)
+          
+          // 前后挡风玻璃
+          ctx.setFillStyle('rgba(255, 255, 255, 0.5)')
+          ctx.fillRect(spotX + 8, spotY + 6, size - 16, size * 0.2) // 前（大概）
+          ctx.fillRect(spotX + 8, spotY + (size - 8) * 0.7, size - 16, size * 0.15) // 后（大概）
+        }
+        
+        // 选中高亮标志框
+        if (selected) {
+           ctx.setStrokeStyle(COLORS.routeHead)
+           ctx.setLineWidth(3)
+           ctx.strokeRect(spotX + 2, spotY + 2, size - 4, size - 4)
+        }
       })
 
+      // 6. 绘制入口标记
       const entry = this.mapInfo?.entry || [0, 0]
+      const entryX = entry[0] * size + size / 2
+      const entryY = entry[1] * size + size / 2
       ctx.setFillStyle(COLORS.entry)
-      ctx.setFontSize(12)
+      ctx.beginPath()
+      ctx.arc(entryX, entryY, 14, 0, Math.PI * 2)
+      ctx.fill()
+      
+      ctx.setFillStyle('#fff')
+      ctx.setFontSize(10)
       ctx.setTextAlign('center')
-      ctx.fillText('入口', entry[0] * size + size / 2, entry[1] * size + size / 2)
+      ctx.setTextBaseline('middle')
+      ctx.fillText('入口', entryX, entryY)
 
       ctx.draw()
     },

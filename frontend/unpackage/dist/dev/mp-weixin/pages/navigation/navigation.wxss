@@ -188,6 +188,22 @@
   display: flex;
   justify-content: space-around;
 }
+.tip-text.data-v-b0045dab {
+  margin-top: 16rpx;
+  color: #666;
+  font-size: 22rpx;
+}
+.instruction-list.data-v-b0045dab {
+  margin-top: 12rpx;
+  background: #f7f9fc;
+  border-radius: 12rpx;
+  padding: 12rpx 16rpx;
+}
+.instruction-item.data-v-b0045dab {
+  font-size: 24rpx;
+  color: #333;
+  line-height: 1.8;
+}
 .info-item.data-v-b0045dab {
   text-align: center;
 }

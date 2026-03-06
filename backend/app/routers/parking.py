@@ -36,6 +36,7 @@ async def parking_entry(
             entry_image=payload.entry_image,
             vehicle_brand=payload.vehicle_brand,
             vehicle_color=payload.vehicle_color,
+            target_spot_id=payload.target_spot_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -38,7 +38,27 @@ const _sfc_main = {
   },
   methods: {
     goTo(url) {
+      const tabPages = [
+        "/pages/index/index",
+        "/pages/spots/spots",
+        "/pages/navigation/navigation",
+        "/pages/profile/profile"
+      ];
+      if (tabPages.includes(url)) {
+        common_vendor.index.switchTab({ url });
+        return;
+      }
       common_vendor.index.navigateTo({ url });
+    },
+    formatMinute(timestamp) {
+      if (!timestamp)
+        return "";
+      const date = new Date(timestamp);
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mi = String(date.getMinutes()).padStart(2, "0");
+      return `${mm}-${dd} ${hh}:${mi}`;
     },
     formatHour(timestamp) {
       if (!timestamp)
@@ -57,7 +77,7 @@ const _sfc_main = {
         this.statistics = statistics.data;
         this.availability = availability.data;
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/index/index.vue:115", error);
+        common_vendor.index.__f__("error", "at pages/index/index.vue:135", error);
       }
     }
   }
@@ -90,7 +110,7 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
     k: common_vendor.t($data.statistics.occupied_spots),
     l: common_vendor.t($data.statistics.revenue_today)
   } : {}, {
-    m: common_vendor.t($data.availability.recommended_time || "---"),
+    m: common_vendor.t($options.formatMinute($data.availability.recommended_time) || "---"),
     n: common_vendor.f($data.availability.availability, (item, k0, i0) => {
       return {
         a: common_vendor.t($options.formatHour(item.timestamp)),

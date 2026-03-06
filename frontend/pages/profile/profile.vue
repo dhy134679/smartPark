@@ -21,6 +21,21 @@
       <button size="mini" type="primary" @click="changePassword">更新密码</button>
     </view>
 
+    <!-- 模拟钱包功能区 -->
+    <view class="card wallet-card" v-if="user && !isAdmin && user.role !== 'guest'">
+      <view class="wallet-header">
+        <view class="title wallet-title">我的钱包</view>
+        <view class="balance">
+          <text class="currency">¥</text>
+          <text class="amount">88.00</text>
+        </view>
+      </view>
+      <view class="wallet-actions">
+        <button size="mini" class="btn-recharge" @click="simulateRecharge">充值</button>
+        <button size="mini" class="btn-bill" @click="simulateBill">账单记录</button>
+      </view>
+    </view>
+
     <view class="card" v-if="user && !isAdmin && user.role !== 'guest'">
       <view class="title">绑定车辆</view>
       <view v-for="item in vehicles" :key="item.id" class="row">
@@ -91,7 +106,7 @@ export default {
       vehicleForm: { plate_number: '', brand: '', color: '', is_resident: true },
       actions: ['新增车位', '更换车位', '释放车位'],
       spotAction: 'assign',
-      zones: ['A', 'B', 'C', 'D'],
+      zones: ['A', 'B', 'C'],
       targetZone: '',
       targetSpotId: null,
       requestReason: ''
@@ -138,6 +153,12 @@ export default {
       const idx = Number(event.detail.value)
       this.targetZone = this.zones[idx] || ''
       this.targetSpotId = null
+    },
+    simulateRecharge() {
+      uni.showToast({ title: '模拟支付暂未开通真实充值', icon: 'none' })
+    },
+    simulateBill() {
+      uni.showToast({ title: '暂无更多账单记录', icon: 'none' })
     },
     onSpotChange(event) {
       const idx = Number(event.detail.value)
@@ -252,4 +273,18 @@ export default {
 .hint, .muted, .empty { color: #888; font-size: 24rpx; margin-top: 8rpx; }
 .req-item { padding: 8rpx 0; }
 .ghost { margin-top: 12rpx; }
+
+/* 钱包样式 */
+.wallet-card {
+  background: linear-gradient(135deg, #fff3f5 0%, #ffe4e9 100%);
+  border: 1px solid #ffd1d9;
+}
+.wallet-title { color: #d81b60; font-weight: bold; }
+.wallet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx; }
+.balance { color: #d81b60; }
+.currency { font-size: 32rpx; font-weight: bold; margin-right: 4rpx; }
+.amount { font-size: 56rpx; font-weight: bold; font-family: 'Courier New', Courier, monospace; }
+.wallet-actions { display: flex; gap: 24rpx; }
+.btn-recharge { flex: 1; background: linear-gradient(90deg, #ff4081, #d81b60); color: #fff; border-radius: 40rpx; }
+.btn-bill { flex: 1; background: #fff; color: #d81b60; border: 1px solid #d81b60; border-radius: 40rpx; }
 </style>

@@ -6,13 +6,24 @@ const _sfc_main = {
     return {
       horizon: 12,
       trend: [],
-      availability: []
+      availability: [],
+      recommendedTime: ""
     };
   },
   onShow() {
     this.loadData();
   },
   methods: {
+    formatMinute(ts) {
+      if (!ts)
+        return "";
+      const date = new Date(ts);
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mi = String(date.getMinutes()).padStart(2, "0");
+      return `${mm}-${dd} ${hh}:${mi}`;
+    },
     formatTime(ts) {
       const date = new Date(ts);
       return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:00`;
@@ -25,8 +36,9 @@ const _sfc_main = {
         ]);
         this.trend = trendRes.data.trend;
         this.availability = availabilityRes.data.availability;
+        this.recommendedTime = availabilityRes.data.recommended_time;
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/predict/predict.vue:51", error);
+        common_vendor.index.__f__("error", "at pages/predict/predict.vue:63", error);
       }
     },
     onHorizonChange(e) {
@@ -47,7 +59,8 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
         c: item.timestamp
       };
     }),
-    e: common_vendor.f($data.availability, (item, k0, i0) => {
+    e: common_vendor.t($options.formatMinute($data.recommendedTime) || "---"),
+    f: common_vendor.f($data.availability, (item, k0, i0) => {
       return {
         a: common_vendor.t($options.formatTime(item.timestamp)),
         b: common_vendor.t(item.available),

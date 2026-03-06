@@ -33,6 +33,14 @@
         <input class="input" v-model="entryForm.plate_number" placeholder="车牌号，如 京A12345" />
         <input class="input" v-model="entryForm.vehicle_brand" placeholder="品牌（可选）" />
         <input class="input" v-model="entryForm.vehicle_color" placeholder="颜色（可选）" />
+        
+        <picker
+          :range="freeSpots"
+          range-key="label"
+          @change="onTargetSpotChange"
+        >
+          <view class="picker input">{{ targetSpotLabel }}</view>
+        </picker>
       </view>
 
       <!-- 识别结果 -->
@@ -142,10 +150,43 @@ export default {
       exitForm: { plate_number: '' },
       recognizeResult: null,
       entryResult: null,
-      exitResult: null
+      exitResult: null,
+      freeSpots: [],
+      selectedSpotId: null
     }
   },
+  computed: {
+    targetSpotLabel() {
+      if (!this.selectedSpotId) return '自动分配（或点击选择目标车位）'
+      const spot = this.freeSpots.find(s => s.id === this.selectedSpotId)
+      return spot ? spot.label : '自动分配（或点击选择目标车位）'
+    }
+  },
+  onShow() {
+    this.loadSpots()
+  },
   methods: {
+    async loadSpots() {
+      try {
+        const res = await request({ url: '/spots' })
+        const allSpots = res.data.items || []
+        this.freeSpots = allSpots
+          .filter(spot => spot.status === 'free')
+          .map(spot => ({
+            id: spot.id,
+            label: `${spot.spot_number} (${spot.zone}区)`
+          }))
+      } catch (error) {
+        console.error('获取车位失败:', error)
+      }
+    },
+    onTargetSpotChange(event) {
+      const idx = Number(event.detail.value)
+      const option = this.freeSpots[idx]
+      if (option) {
+        this.selectedSpotId = option.id
+      }
+    },
     isPossiblePlate(text) {
       if (!text || text === '未知') return false
       return /^[\u4e00-\u9fa5][A-Z][A-Z0-9]{5,7}$/.test(String(text).toUpperCase())
@@ -205,14 +246,22 @@ export default {
       }
       this.entryForm.plate_number = this.entryForm.plate_number.toUpperCase()
       this.entryLoading = true
+      
+      const payload = { ...this.entryForm }
+      if (this.selectedSpotId) {
+        payload.target_spot_id = this.selectedSpotId
+      }
+      
       try {
         const res = await request({
           url: '/parking/entry',
           method: 'POST',
-          data: this.entryForm
+          data: payload
         })
         this.entryResult = res.data
         this.entryStep = 3
+        this.selectedSpotId = null
+        this.loadSpots()
         uni.showToast({ title: '入场成功', icon: 'success' })
       } catch (error) {
         console.error(error)
@@ -289,7 +338,8 @@ export default {
     },
     // 跳转导航
     goNavigation(spotId) {
-      uni.navigateTo({ url: `/pages/navigation/navigation?spotId=${spotId}` })
+      uni.setStorageSync('navSpotId', spotId)
+      uni.switchTab({ url: '/pages/navigation/navigation' })
     }
   }
 }

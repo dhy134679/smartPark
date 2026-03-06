@@ -3,6 +3,7 @@ const common_vendor = require("../../common/vendor.js");
 const utils_request = require("../../utils/request.js");
 const utils_auth = require("../../utils/auth.js");
 const GRID_SIZE = 28;
+const SAFE_PADDING = 24;
 const COLORS = {
   background: "#f0f2f5",
   road: "#e8eaed",
@@ -40,13 +41,18 @@ const _sfc_main = {
         { label: "访客", value: "guest" }
       ],
       assignSelections: {},
+      assignZoneSelections: {},
+      assignZones: ["A", "B", "C", "D"],
       vehicleForms: {},
       mapInfo: null,
       allSpots: [],
       selectedZone: "全部",
       selectedSpot: null,
       routePath: [],
-      preSelectedSpotId: null
+      preSelectedSpotId: null,
+      cellSize: GRID_SIZE,
+      canvasWidth: 0,
+      canvasHeight: 0
     };
   },
   computed: {
@@ -60,6 +66,44 @@ const _sfc_main = {
       if (this.selectedZone === "全部")
         return this.freeSpots;
       return this.freeSpots.filter((spot) => spot.zone === this.selectedZone);
+    },
+    estimatedMinutes() {
+      if (this.routePath.length <= 1)
+        return 0;
+      const walkingSpeedStepPerMinute = 75;
+      return Math.max(1, Math.ceil((this.routePath.length - 1) / walkingSpeedStepPerMinute));
+    },
+    canvasStyle() {
+      return `width:${this.canvasWidth}px;height:${this.canvasHeight}px;`;
+    },
+    routeInstructions() {
+      if (this.routePath.length <= 1)
+        return [];
+      const instructions = [];
+      let prevDirection = "";
+      let stepCount = 0;
+      for (let idx = 1; idx < this.routePath.length; idx++) {
+        const prev = this.routePath[idx - 1];
+        const current = this.routePath[idx];
+        const direction = this.getDirection(prev, current);
+        if (!prevDirection) {
+          prevDirection = direction;
+          stepCount = 1;
+          continue;
+        }
+        if (direction === prevDirection) {
+          stepCount += 1;
+        } else {
+          instructions.push(`向${prevDirection}直行 ${stepCount} 步`);
+          prevDirection = direction;
+          stepCount = 1;
+        }
+      }
+      if (stepCount > 0) {
+        instructions.push(`向${prevDirection}直行 ${stepCount} 步`);
+      }
+      instructions.push("到达目标车位附近，请减速并观察车位编号");
+      return instructions;
     }
   },
   onLoad(options) {
@@ -138,7 +182,7 @@ const _sfc_main = {
         this.vehicles = vehiclesRes.data.items || [];
         this.syncVehicleForms();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:332", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:395", error);
       }
     },
     syncVehicleForms() {
@@ -170,7 +214,7 @@ const _sfc_main = {
         this.createForm = { name: "", phone: "", password: "" };
         await this.loadAdminData();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:364", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:427", error);
       } finally {
         this.createLoading = false;
       }
@@ -190,7 +234,7 @@ const _sfc_main = {
         this.cancelEdit();
         await this.loadAdminData();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:384", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:447", error);
       }
     },
     deleteUser(user) {
@@ -208,7 +252,7 @@ const _sfc_main = {
             common_vendor.index.showToast({ title: "删除成功", icon: "success" });
             await this.loadAdminData();
           } catch (error) {
-            common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:401", error);
+            common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:464", error);
           }
         }
       });
@@ -228,10 +272,22 @@ const _sfc_main = {
       };
     },
     assignableSpots(userId) {
-      return this.spots.filter((spot) => spot.owner_id === null || spot.owner_id === userId).map((spot) => ({
+      const selectedZone = this.assignZoneSelections[userId];
+      return this.spots.filter((spot) => spot.owner_id === null || spot.owner_id === userId).filter((spot) => !selectedZone || spot.zone === selectedZone).map((spot) => ({
         id: spot.id,
         label: `${spot.spot_number} (${spot.zone}区)`
       }));
+    },
+    onAssignZoneChange(userId, event) {
+      const idx = Number(event.detail.value);
+      const zone = this.assignZones[idx];
+      if (!zone)
+        return;
+      this.assignZoneSelections[userId] = zone;
+      this.assignSelections[userId] = null;
+    },
+    assignZoneLabel(userId) {
+      return this.assignZoneSelections[userId] ? `${this.assignZoneSelections[userId]}区` : "请选择目标区域";
     },
     onAssignSpotChange(userId, event) {
       const idx = Number(event.detail.value);
@@ -263,7 +319,7 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "分配成功", icon: "success" });
         await this.loadAdminData();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:456", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:533", error);
       }
     },
     async releaseSpot(spotId) {
@@ -276,7 +332,7 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "已释放", icon: "success" });
         await this.loadAdminData();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:469", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:546", error);
       }
     },
     async addVehicleForUser(userId) {
@@ -300,7 +356,7 @@ const _sfc_main = {
         };
         await this.loadAdminData();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:493", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:570", error);
       }
     },
     async deleteVehicleForUser(vehicleId) {
@@ -312,11 +368,33 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "车辆已删除", icon: "success" });
         await this.loadAdminData();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:505", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:582", error);
       }
     },
     filterZone(zone) {
       this.selectedZone = zone;
+    },
+    // 计算方向文本（用于静态路线说明）
+    getDirection(from, to) {
+      if (to.x > from.x)
+        return "右";
+      if (to.x < from.x)
+        return "左";
+      if (to.y > from.y)
+        return "下";
+      return "上";
+    },
+    // 根据屏幕宽度动态计算画布尺寸，避免不同机型上被裁切
+    updateCanvasSize() {
+      var _a, _b;
+      const systemInfo = common_vendor.index.getSystemInfoSync();
+      const containerWidth = systemInfo.windowWidth - SAFE_PADDING;
+      const gw = ((_a = this.mapInfo) == null ? void 0 : _a.width) || 24;
+      const gh = ((_b = this.mapInfo) == null ? void 0 : _b.height) || 18;
+      const nextCellSize = Math.max(12, Math.floor(containerWidth / gw));
+      this.cellSize = nextCellSize;
+      this.canvasWidth = gw * nextCellSize;
+      this.canvasHeight = gh * nextCellSize;
     },
     selectSpot(spot) {
       this.selectedSpot = spot;
@@ -327,6 +405,7 @@ const _sfc_main = {
         const res = await utils_request.request({ url: "/navigation/map" });
         this.mapInfo = res.data;
         this.allSpots = res.data.spots || [];
+        this.updateCanvasSize();
         if (this.preSelectedSpotId) {
           const target = this.allSpots.find((spot) => spot.id === this.preSelectedSpotId);
           if (target) {
@@ -337,7 +416,7 @@ const _sfc_main = {
         }
         this.drawMap();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:532", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:628", error);
       }
     },
     async planRoute() {
@@ -352,7 +431,7 @@ const _sfc_main = {
         this.routePath = res.data.route || [];
         this.drawMap();
       } catch (error) {
-        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:546", error);
+        common_vendor.index.__f__("error", "at pages/navigation/navigation.vue:642", error);
       }
     },
     drawMap() {
@@ -360,14 +439,15 @@ const _sfc_main = {
       const ctx = common_vendor.index.createCanvasContext("parkingMap", this);
       const gw = ((_a = this.mapInfo) == null ? void 0 : _a.width) || 24;
       const gh = ((_b = this.mapInfo) == null ? void 0 : _b.height) || 18;
-      const width = gw * GRID_SIZE;
-      const height = gh * GRID_SIZE;
+      const size = this.cellSize || GRID_SIZE;
+      const width = gw * size;
+      const height = gh * size;
       ctx.setFillStyle(COLORS.background);
       ctx.fillRect(0, 0, width, height);
       ctx.setFillStyle("#e8eaed");
-      ctx.fillRect(0, 3 * GRID_SIZE - 4, width, GRID_SIZE + 8);
-      ctx.fillRect(0, 10 * GRID_SIZE - 4, width, GRID_SIZE + 8);
-      ctx.fillRect(12 * GRID_SIZE - 4, 0, GRID_SIZE + 8, height);
+      ctx.fillRect(0, 3 * size - 4, width, size + 8);
+      ctx.fillRect(0, 10 * size - 4, width, size + 8);
+      ctx.fillRect(12 * size - 4, 0, size + 8, height);
       if (this.routePath.length > 1) {
         ctx.setStrokeStyle(COLORS.route);
         ctx.setLineWidth(4);
@@ -375,32 +455,32 @@ const _sfc_main = {
         ctx.setLineJoin("round");
         ctx.beginPath();
         const first = this.routePath[0];
-        ctx.moveTo(first.x * GRID_SIZE + GRID_SIZE / 2, first.y * GRID_SIZE + GRID_SIZE / 2);
+        ctx.moveTo(first.x * size + size / 2, first.y * size + size / 2);
         for (let idx = 1; idx < this.routePath.length; idx++) {
           const point = this.routePath[idx];
-          ctx.lineTo(point.x * GRID_SIZE + GRID_SIZE / 2, point.y * GRID_SIZE + GRID_SIZE / 2);
+          ctx.lineTo(point.x * size + size / 2, point.y * size + size / 2);
         }
         ctx.stroke();
         ctx.setFillStyle(COLORS.entry);
         ctx.beginPath();
-        ctx.arc(first.x * GRID_SIZE + GRID_SIZE / 2, first.y * GRID_SIZE + GRID_SIZE / 2, 8, 0, Math.PI * 2);
+        ctx.arc(first.x * size + size / 2, first.y * size + size / 2, 8, 0, Math.PI * 2);
         ctx.fill();
         const last = this.routePath[this.routePath.length - 1];
         ctx.setFillStyle(COLORS.routeHead);
         ctx.beginPath();
-        ctx.arc(last.x * GRID_SIZE + GRID_SIZE / 2, last.y * GRID_SIZE + GRID_SIZE / 2, 8, 0, Math.PI * 2);
+        ctx.arc(last.x * size + size / 2, last.y * size + size / 2, 8, 0, Math.PI * 2);
         ctx.fill();
       }
       this.allSpots.forEach((spot) => {
-        const centerX = spot.x_pos * GRID_SIZE + GRID_SIZE / 2;
-        const centerY = spot.y_pos * GRID_SIZE + GRID_SIZE / 2;
+        const centerX = spot.x_pos * size + size / 2;
+        const centerY = spot.y_pos * size + size / 2;
         const selected = this.selectedSpot && this.selectedSpot.id === spot.id;
         ctx.setFillStyle(
           selected ? COLORS.route : spot.status === "free" ? COLORS.free : spot.status === "reserved" ? COLORS.reserved : COLORS.occupied
         );
-        const size = selected ? GRID_SIZE - 4 : GRID_SIZE - 6;
-        const offset = (GRID_SIZE - size) / 2;
-        ctx.fillRect(spot.x_pos * GRID_SIZE + offset, spot.y_pos * GRID_SIZE + offset, size, size);
+        const spotSize = selected ? size - 4 : size - 6;
+        const offset = (size - spotSize) / 2;
+        ctx.fillRect(spot.x_pos * size + offset, spot.y_pos * size + offset, spotSize, spotSize);
         ctx.setFillStyle("#fff");
         ctx.setFontSize(8);
         ctx.setTextAlign("center");
@@ -411,12 +491,13 @@ const _sfc_main = {
       ctx.setFillStyle(COLORS.entry);
       ctx.setFontSize(12);
       ctx.setTextAlign("center");
-      ctx.fillText("入口", entry[0] * GRID_SIZE + GRID_SIZE / 2, entry[1] * GRID_SIZE + GRID_SIZE / 2);
+      ctx.fillText("入口", entry[0] * size + size / 2, entry[1] * size + size / 2);
       ctx.draw();
     },
     onCanvasClick(event) {
-      const x = Math.floor(event.detail.x / GRID_SIZE);
-      const y = Math.floor(event.detail.y / GRID_SIZE);
+      const size = this.cellSize || GRID_SIZE;
+      const x = Math.floor(event.detail.x / size);
+      const y = Math.floor(event.detail.y / size);
       const clicked = this.allSpots.find(
         (spot) => Math.round(spot.x_pos) === x && Math.round(spot.y_pos) === y && spot.status === "free"
       );
@@ -479,13 +560,15 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
         r: common_vendor.o(($event) => $options.saveEdit(item.id), item.id),
         s: common_vendor.o((...args) => $options.cancelEdit && $options.cancelEdit(...args), item.id)
       } : {}, {
-        t: common_vendor.t($options.assignLabel(item.id)),
-        v: $options.assignableSpots(item.id),
-        w: common_vendor.o(($event) => $options.onAssignSpotChange(item.id, $event), item.id),
-        x: common_vendor.o(($event) => $options.assignSpot(item.id), item.id),
-        y: $options.ownedSpots(item.id).length > 0
+        t: common_vendor.t($options.assignZoneLabel(item.id)),
+        v: common_vendor.o(($event) => $options.onAssignZoneChange(item.id, $event), item.id),
+        w: common_vendor.t($options.assignLabel(item.id)),
+        x: $options.assignableSpots(item.id),
+        y: common_vendor.o(($event) => $options.onAssignSpotChange(item.id, $event), item.id),
+        z: common_vendor.o(($event) => $options.assignSpot(item.id), item.id),
+        A: $options.ownedSpots(item.id).length > 0
       }, $options.ownedSpots(item.id).length > 0 ? {
-        z: common_vendor.f($options.ownedSpots(item.id), (spot, k1, i1) => {
+        B: common_vendor.f($options.ownedSpots(item.id), (spot, k1, i1) => {
           return {
             a: common_vendor.t(spot.spot_number),
             b: common_vendor.o(($event) => $options.releaseSpot(spot.id), spot.id),
@@ -493,9 +576,9 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
           };
         })
       } : {}, {
-        A: $options.userVehicles(item.id).length > 0
+        C: $options.userVehicles(item.id).length > 0
       }, $options.userVehicles(item.id).length > 0 ? {
-        B: common_vendor.f($options.userVehicles(item.id), (vehicle, k1, i1) => {
+        D: common_vendor.f($options.userVehicles(item.id), (vehicle, k1, i1) => {
           return {
             a: common_vendor.t(vehicle.plate_number),
             b: common_vendor.t(vehicle.brand || "-"),
@@ -505,27 +588,29 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
           };
         })
       } : {}, {
-        C: $options.vehicleForm(item.id).plate_number,
-        D: common_vendor.o(common_vendor.m(($event) => $options.vehicleForm(item.id).plate_number = $event.detail.value, {
+        E: $options.vehicleForm(item.id).plate_number,
+        F: common_vendor.o(common_vendor.m(($event) => $options.vehicleForm(item.id).plate_number = $event.detail.value, {
           trim: true
         }), item.id),
-        E: $options.vehicleForm(item.id).brand,
-        F: common_vendor.o(common_vendor.m(($event) => $options.vehicleForm(item.id).brand = $event.detail.value, {
+        G: $options.vehicleForm(item.id).brand,
+        H: common_vendor.o(common_vendor.m(($event) => $options.vehicleForm(item.id).brand = $event.detail.value, {
           trim: true
         }), item.id),
-        G: $options.vehicleForm(item.id).color,
-        H: common_vendor.o(common_vendor.m(($event) => $options.vehicleForm(item.id).color = $event.detail.value, {
+        I: $options.vehicleForm(item.id).color,
+        J: common_vendor.o(common_vendor.m(($event) => $options.vehicleForm(item.id).color = $event.detail.value, {
           trim: true
         }), item.id),
-        I: $options.vehicleForm(item.id).is_resident,
-        J: common_vendor.o(($event) => $options.vehicleForm(item.id).is_resident = $event.detail.value, item.id),
-        K: common_vendor.o(($event) => $options.addVehicleForUser(item.id), item.id),
-        L: item.id
+        K: $options.vehicleForm(item.id).is_resident,
+        L: common_vendor.o(($event) => $options.vehicleForm(item.id).is_resident = $event.detail.value, item.id),
+        M: common_vendor.o(($event) => $options.addVehicleForUser(item.id), item.id),
+        N: item.id
       });
-    })
+    }),
+    p: $data.assignZones
   }) : common_vendor.e({
-    p: common_vendor.o((...args) => $options.onCanvasClick && $options.onCanvasClick(...args)),
-    q: common_vendor.f(["全部", "A", "B", "C"], (z, k0, i0) => {
+    q: common_vendor.s($options.canvasStyle),
+    r: common_vendor.o((...args) => $options.onCanvasClick && $options.onCanvasClick(...args)),
+    s: common_vendor.f(["全部", "A", "B", "C"], (z, k0, i0) => {
       return {
         a: common_vendor.t(z === "全部" ? "全部" : z + "区"),
         b: z,
@@ -533,7 +618,7 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
         d: common_vendor.o(($event) => $options.filterZone(z), z)
       };
     }),
-    r: common_vendor.f($options.filteredFreeSpots, (spot, k0, i0) => {
+    t: common_vendor.f($options.filteredFreeSpots, (spot, k0, i0) => {
       return {
         a: common_vendor.t(spot.spot_number),
         b: common_vendor.t(spot.zone),
@@ -542,12 +627,20 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
         e: common_vendor.o(($event) => $options.selectSpot(spot), spot.id)
       };
     }),
-    s: $options.filteredFreeSpots.length === 0
+    v: $options.filteredFreeSpots.length === 0
   }, $options.filteredFreeSpots.length === 0 ? {} : {}, {
-    t: $data.routePath.length > 0
+    w: $data.routePath.length > 0
   }, $data.routePath.length > 0 ? {
-    v: common_vendor.t($data.selectedSpot ? $data.selectedSpot.spot_number : "-"),
-    w: common_vendor.t($data.routePath.length)
+    x: common_vendor.t($data.selectedSpot ? $data.selectedSpot.spot_number : "-"),
+    y: common_vendor.t($data.routePath.length),
+    z: common_vendor.t($options.estimatedMinutes),
+    A: common_vendor.f($options.routeInstructions, (item, idx, i0) => {
+      return {
+        a: common_vendor.t(idx + 1),
+        b: common_vendor.t(item),
+        c: idx
+      };
+    })
   } : {}));
 }
 const MiniProgramPage = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["render", _sfc_render], ["__scopeId", "data-v-b0045dab"]]);

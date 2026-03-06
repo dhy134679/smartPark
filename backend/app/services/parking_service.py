@@ -66,6 +66,7 @@ async def create_entry_record(
     entry_image: str | None = None,
     vehicle_brand: str | None = None,
     vehicle_color: str | None = None,
+    target_spot_id: int | None = None,
 ) -> tuple[ParkingRecord, ParkingSpot]:
     """创建入场记录并占用车位。"""
 
@@ -74,7 +75,31 @@ async def create_entry_record(
         return active_record, active_record.spot  # type: ignore[attr-defined]
 
     vehicle = await ensure_vehicle(session, plate_number, vehicle_brand, vehicle_color)
-    spot = await allocate_free_spot(session)
+    
+    spot = None
+    
+    # 1. 如果该车辆绑定了业主，优先寻找该业主名下的空闲专属车位
+    if vehicle.owner_id:
+        stmt = (
+            select(ParkingSpot)
+            .where(ParkingSpot.owner_id == vehicle.owner_id)
+            .where(ParkingSpot.status == "free")
+            .order_by(ParkingSpot.zone, ParkingSpot.spot_number)
+            .limit(1)
+        )
+        res = await session.execute(stmt)
+        spot = res.scalar_one_or_none()
+
+    # 2. 如果没有专属空闲车位，并且提供了 target_spot_id，则分配指定车位
+    if not spot and target_spot_id:
+        spot = await session.get(ParkingSpot, target_spot_id)
+        if not spot or spot.status != "free":
+            raise ValueError("所选车位不存在或非空闲状态")
+            
+    # 3. 如果仍未分配，则统筹分配一个空闲车位
+    if not spot:
+        spot = await allocate_free_spot(session)
+        
     if not spot:
         raise ValueError("当前无空闲车位")
 

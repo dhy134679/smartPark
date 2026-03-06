@@ -16,6 +16,9 @@ class ParkingEntryPayload(BaseModel):
     entry_image: str | None = Field(
         None, description="模拟上传的图片路径，实际接口将接收文件"
     )
+    target_spot_id: int | None = Field(
+        None, description="指定进入的车位ID，不传则系统自动分配"
+    )
 
 
 class ParkingExitPayload(BaseModel):
