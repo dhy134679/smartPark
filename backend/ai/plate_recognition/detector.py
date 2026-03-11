@@ -1,9 +1,4 @@
-﻿"""YOLOv5 车牌检测模块。
-
-基于 we0091234/Chinese_license_plate_detection_recognition 项目，
-使用自定义 YOLOv5 模型检测车牌区域及四角点坐标。
-"""
-
+﻿
 from __future__ import annotations
 
 import copy
@@ -14,14 +9,14 @@ import cv2
 import numpy as np
 import torch
 
-# 将克隆的仓库加入搜索路径，以便导入 YOLOv5 自定义模块
+
 _LIB_DIR = Path(__file__).resolve().parent / "lib"
 if str(_LIB_DIR) not in sys.path:
     sys.path.insert(0, str(_LIB_DIR))
 
-from models.experimental import attempt_load  # noqa: E402
-from utils.datasets import letterbox  # noqa: E402
-from utils.general import (  # noqa: E402
+from models.experimental import attempt_load
+from utils.datasets import letterbox
+from utils.general import (
     check_img_size,
     non_max_suppression_face,
     scale_coords,
@@ -31,7 +26,6 @@ from utils.general import (  # noqa: E402
 def _scale_coords_landmarks(
     img1_shape: tuple, coords: torch.Tensor, img0_shape: tuple
 ) -> torch.Tensor:
-    """将关键点坐标从推理尺寸缩放回原图尺寸。"""
     gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])
     pad = (
         (img1_shape[1] - img0_shape[1] * gain) / 2,
@@ -52,7 +46,6 @@ def _scale_coords_landmarks(
 
 
 def _four_point_transform(image: np.ndarray, pts: np.ndarray) -> np.ndarray:
-    """透视变换：根据四角点坐标裁剪并矫正车牌区域。"""
     rect = pts.astype("float32")
     tl, tr, br, bl = rect
     width_a = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
@@ -71,7 +64,6 @@ def _four_point_transform(image: np.ndarray, pts: np.ndarray) -> np.ndarray:
 
 
 def _get_split_merge(img: np.ndarray) -> np.ndarray:
-    """双层车牌拼接：将上下两部分水平拼接为单行。"""
     h, w, _ = img.shape
     img_upper = img[0 : int(5 / 12 * h), :]
     img_lower = img[int(1 / 3 * h) :, :]
@@ -80,11 +72,6 @@ def _get_split_merge(img: np.ndarray) -> np.ndarray:
 
 
 class PlateDetector:
-    """YOLOv5 车牌检测器。
-
-    加载自定义 YOLOv5 权重，检测图片中的车牌区域，
-    并通过四角点透视变换裁剪出矫正后的车牌小图。
-    """
 
     def __init__(self, weights_path: Path | None = None, img_size: int = 640) -> None:
         self.weights_path = weights_path
@@ -101,19 +88,6 @@ class PlateDetector:
                 print(f"[PlateDetector] 加载检测模型失败: {exc}")
 
     def detect(self, image: np.ndarray) -> list[dict]:
-        """检测图片中的车牌。
-
-        Args:
-            image: BGR 格式的 OpenCV 图片。
-
-        Returns:
-            检测结果列表，每项包含：
-            - bbox: [x1, y1, x2, y2]
-            - confidence: 检测置信度
-            - landmarks: 四角点坐标 [[x,y], ...]
-            - plate_type: 0=单层, 1=双层
-            - roi_img: 透视变换后的车牌小图
-        """
         if not self.ready or self.model is None:
             return []
 
@@ -132,14 +106,14 @@ class PlateDetector:
 
         imgsz = check_img_size(self.img_size, s=self.model.stride.max())
         img = letterbox(img0, new_shape=imgsz)[0]
-        img = img[:, :, ::-1].transpose(2, 0, 1).copy()  # BGR → RGB, HWC → CHW
+        img = img[:, :, ::-1].transpose(2, 0, 1).copy()
 
         img_tensor = torch.from_numpy(img).to(self.device).float()
         img_tensor /= 255.0
         if img_tensor.ndimension() == 3:
             img_tensor = img_tensor.unsqueeze(0)
 
-        # 推理
+
         pred = self.model(img_tensor)[0]
         pred = non_max_suppression_face(pred, conf_thres, iou_thres)
 
@@ -158,17 +132,17 @@ class PlateDetector:
                     landmarks = det[j, 5:13].view(-1).tolist()
                     class_num = int(det[j, 13].cpu().numpy())
 
-                    # 构建四角点数组
+
                     landmarks_np = np.zeros((4, 2))
                     for k in range(4):
                         landmarks_np[k] = np.array(
                             [int(landmarks[2 * k]), int(landmarks[2 * k + 1])]
                         )
 
-                    # 透视变换裁剪车牌
+
                     roi_img = _four_point_transform(image, landmarks_np)
 
-                    # 双层车牌拼接处理
+
                     if class_num == 1:
                         roi_img = _get_split_merge(roi_img)
 

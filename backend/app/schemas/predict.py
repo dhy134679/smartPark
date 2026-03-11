@@ -1,10 +1,8 @@
-﻿"""车位预测数据模型。"""
-
+﻿
 from pydantic import BaseModel, Field
 
 
 class TrendPoint(BaseModel):
-    """趋势点。"""
 
     timestamp: str
     hour: int
@@ -12,14 +10,12 @@ class TrendPoint(BaseModel):
 
 
 class AvailabilityPoint(BaseModel):
-    """空闲数量点。"""
 
     timestamp: str
     available: int
 
 
 class AvailabilityResponse(BaseModel):
-    """空闲预测返回。"""
 
     capacity: int
     trend: list[TrendPoint]
@@ -28,7 +24,6 @@ class AvailabilityResponse(BaseModel):
 
 
 class TrendResponse(BaseModel):
-    """趋势返回。"""
 
     trend: list[TrendPoint]
 

@@ -1,4 +1,3 @@
-"""用户表模型。"""
 
 from datetime import datetime
 
@@ -9,7 +8,6 @@ from app.models.base import Base
 
 
 class User(Base):
-    """用户信息。"""
 
     __tablename__ = "users"
 

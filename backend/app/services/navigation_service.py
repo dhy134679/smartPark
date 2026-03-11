@@ -1,5 +1,4 @@
-﻿"""导航与路径规划。"""
-
+﻿
 from __future__ import annotations
 
 from heapq import heappop, heappush
@@ -61,7 +60,6 @@ def _astar(start: GridPoint, goal: GridPoint, width: int, height: int, blocked: 
 
 
 async def get_navigation_map(session: AsyncSession) -> dict:
-    """返回地图信息。"""
 
     stmt = select(ParkingSpot).order_by(ParkingSpot.zone, ParkingSpot.spot_number)
     result = await session.execute(stmt)
@@ -78,7 +76,6 @@ async def get_navigation_map(session: AsyncSession) -> dict:
 async def plan_route_to_spot(
     session: AsyncSession, spot_id: int
 ) -> tuple[ParkingSpot | None, list[GridPoint]]:
-    """计算 A* 路径。"""
 
     spot = await session.get(ParkingSpot, spot_id)
     if not spot:

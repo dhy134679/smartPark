@@ -1,4 +1,3 @@
-"""车位状态日志模型。"""
 
 from datetime import datetime
 
@@ -9,7 +8,6 @@ from app.models.base import Base
 
 
 class SpotStatusLog(Base):
-    """用于预测训练的状态日志。"""
 
     __tablename__ = "spot_status_logs"
 

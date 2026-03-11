@@ -1,6 +1,6 @@
-"""认证相关接口。"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -37,7 +37,6 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 async def register_user(
     payload: UserRegister, session: AsyncSession = Depends(get_db)
 ) -> dict:
-    """用户注册。"""
 
     exists = await get_user_by_phone(session, payload.phone)
     if exists:
@@ -53,7 +52,6 @@ async def register_user(
 async def login_user(
     payload: UserLogin, session: AsyncSession = Depends(get_db)
 ) -> dict:
-    """用户登录。"""
 
     user = await authenticate_user(session, payload.phone, payload.password)
     if not user:
@@ -71,7 +69,6 @@ async def admin_create_user(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """管理员手动创建住户账户。"""
 
     if current_user.role != "admin":
         raise HTTPException(
@@ -96,19 +93,43 @@ async def admin_create_user(
 async def admin_list_users(
     keyword: str | None = Query(None, description="姓名/手机号模糊搜索"),
     role: str | None = Query(None, description="按角色筛选"),
+    resident_only: bool = Query(True, description="仅查看住户"),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """管理员查询用户列表。"""
 
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="无管理员权限"
         )
 
-    users = await list_users(session, keyword=keyword, role=role)
+    users = await list_users(
+        session,
+        keyword=keyword,
+        role=role,
+        resident_only=resident_only,
+    )
     items = [AdminUserListItem.model_validate(user).model_dump() for user in users]
     return success_response({"items": items})
+
+
+@router.get("/users/{user_id}")
+async def admin_get_user(
+    user_id: int,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="无管理员权限"
+        )
+
+    user = await session.get(User, user_id)
+    if not user or user.role != "resident":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="住户不存在")
+
+    return success_response({"user": UserProfile.model_validate(user).model_dump()})
 
 
 @router.put("/users/{user_id}")
@@ -118,7 +139,6 @@ async def admin_edit_user(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """管理员更新用户信息。"""
 
     if current_user.role != "admin":
         raise HTTPException(
@@ -132,6 +152,7 @@ async def admin_edit_user(
             target_user_id=user_id,
             name=payload.name,
             phone=payload.phone,
+            password=payload.password,
             role=payload.role,
             is_resident=payload.is_resident,
         )
@@ -152,7 +173,6 @@ async def admin_remove_user(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """管理员删除用户。"""
 
     if current_user.role != "admin":
         raise HTTPException(
@@ -176,20 +196,19 @@ async def admin_remove_user(
 
 @router.post("/guest_login")
 async def guest_login(session: AsyncSession = Depends(get_db)) -> dict:
-    """游客登录。临时使用不需要注册手机号。"""
 
-    # users.phone 字段限制最大 20 字符：gst_ + 10位时间戳 + 4位随机码 = 18 字符。
-    import time
-    import uuid
-
-    guest_phone = f"gst_{int(time.time())}_{str(uuid.uuid4())[:4]}"
-
-    user = await create_user(
-        session=session,
-        phone=guest_phone,
-        name="匿名游客",
-        password=guest_phone,
+    guest_phone = "guest_demo"
+    await session.execute(
+        delete(User).where(User.role == "guest", User.phone != guest_phone)
     )
+    user = await get_user_by_phone(session, guest_phone)
+    if not user:
+        user = await create_user(
+            session=session,
+            phone=guest_phone,
+            name="匿名游客",
+            password="guest_demo_pwd",
+        )
     user.role = "guest"
     user.is_resident = False
     await session.commit()
@@ -202,7 +221,6 @@ async def guest_login(session: AsyncSession = Depends(get_db)) -> dict:
 
 @router.get("/profile")
 async def get_profile(user: User = Depends(get_current_user)) -> dict:
-    """获取个人信息。"""
 
     return success_response({"user": UserProfile.model_validate(user).model_dump()})
 
@@ -213,7 +231,6 @@ async def update_profile(
     session: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> dict:
-    """修改个人信息。"""
 
     try:
         updated = await update_user_profile(session, user, payload.name, payload.phone)
@@ -228,7 +245,6 @@ async def update_password(
     session: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> dict:
-    """修改当前用户密码。"""
 
     try:
         await change_password(session, user, payload.old_password, payload.new_password)

@@ -1,4 +1,3 @@
-"""车辆表模型。"""
 
 from datetime import datetime
 
@@ -9,7 +8,6 @@ from app.models.base import Base
 
 
 class Vehicle(Base):
-    """车辆信息。"""
 
     __tablename__ = "vehicles"
 

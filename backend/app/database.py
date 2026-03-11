@@ -1,4 +1,3 @@
-"""数据库连接与会话管理。"""
 
 from collections.abc import AsyncGenerator
 
@@ -12,7 +11,6 @@ AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """获取数据库会话。"""
 
     async with AsyncSessionLocal() as session:
         yield session

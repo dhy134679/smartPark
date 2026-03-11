@@ -1,5 +1,4 @@
-﻿"""认证相关依赖。"""
-
+﻿
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,14 +15,13 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> User:
-    """校验 Token 并返回用户。"""
 
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
     token = credentials.credentials
     try:
         payload = decode_access_token(token)
-    except Exception as exc:  # pragma: no cover - 解析异常
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token 无效"
         ) from exc
@@ -46,13 +44,12 @@ async def get_optional_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> User | None:
-    """允许匿名访问的情况下尽可能解析用户。"""
 
     if not credentials:
         return None
     try:
         payload = decode_access_token(credentials.credentials)
-    except Exception:  # pragma: no cover
+    except Exception:
         return None
     user_id = payload.get("sub")
     if not user_id:

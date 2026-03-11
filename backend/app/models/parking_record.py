@@ -1,4 +1,3 @@
-"""停车记录模型。"""
 
 from datetime import datetime
 
@@ -9,7 +8,6 @@ from app.models.base import Base
 
 
 class ParkingRecord(Base):
-    """停车记录。"""
 
     __tablename__ = "parking_records"
 

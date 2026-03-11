@@ -21,18 +21,33 @@
       <button size="mini" type="primary" @click="changePassword">更新密码</button>
     </view>
 
-    <!-- 模拟钱包功能区 -->
     <view class="card wallet-card" v-if="user && !isAdmin && user.role !== 'guest'">
       <view class="wallet-header">
         <view class="title wallet-title">我的钱包</view>
         <view class="balance">
           <text class="currency">¥</text>
-          <text class="amount">88.00</text>
+          <text class="amount">{{ Number(incomeData.total_income || 0).toFixed(2) }}</text>
         </view>
       </view>
       <view class="wallet-actions">
         <button size="mini" class="btn-recharge" @click="simulateRecharge">充值</button>
         <button size="mini" class="btn-bill" @click="simulateBill">账单记录</button>
+      </view>
+    </view>
+
+    <view class="card" v-if="isAdmin">
+      <view class="title">收费归属概览</view>
+      <view class="row">
+        <text>管理员账号收益</text>
+        <text>¥{{ Number(adminIncomeSummary.admin_income_total || 0).toFixed(2) }}</text>
+      </view>
+      <view class="row">
+        <text>住户账号收益总额</text>
+        <text>¥{{ Number(adminIncomeSummary.owner_income_total || 0).toFixed(2) }}</text>
+      </view>
+      <view class="row">
+        <text>累计收费</text>
+        <text>¥{{ Number(adminIncomeSummary.total_fee || 0).toFixed(2) }}</text>
       </view>
     </view>
 
@@ -101,6 +116,8 @@ export default {
       allSpots: [],
       myRequests: [],
       pendingRequests: [],
+      incomeData: { total_income: 0, recent_details: [] },
+      adminIncomeSummary: { total_fee: 0, owner_income_total: 0, admin_income_total: 0 },
       profileForm: { name: '', phone: '' },
       pwdForm: { old_password: '', new_password: '' },
       vehicleForm: { plate_number: '', brand: '', color: '', is_resident: true },
@@ -158,7 +175,19 @@ export default {
       uni.showToast({ title: '模拟支付暂未开通真实充值', icon: 'none' })
     },
     simulateBill() {
-      uni.showToast({ title: '暂无更多账单记录', icon: 'none' })
+      const details = this.incomeData.recent_details || []
+      if (details.length === 0) {
+        uni.showToast({ title: '暂无收益记录', icon: 'none' })
+        return
+      }
+      const lines = details
+        .slice(0, 5)
+        .map((item) => `${item.time} ${item.plate_number} +¥${Number(item.amount || 0).toFixed(2)}`)
+      uni.showModal({
+        title: '最近收益记录',
+        content: lines.join('\n'),
+        showCancel: false
+      })
     },
     onSpotChange(event) {
       const idx = Number(event.detail.value)
@@ -171,22 +200,28 @@ export default {
         this.user = profile.data.user
         this.profileForm = { name: this.user.name, phone: this.user.phone }
         if (this.isAdmin) {
-          const reqRes = await request({ url: '/spots/change-requests?status=pending' })
+          const [reqRes, incomeRes] = await Promise.all([
+            request({ url: '/spots/change-requests?status=pending' }),
+            request({ url: '/fees/income-summary' })
+          ])
           this.pendingRequests = reqRes.data.items || []
+          this.adminIncomeSummary = incomeRes.data || this.adminIncomeSummary
           return
         }
 
         if (this.user.role !== 'guest') {
-          const [vehiclesRes, mySpotsRes, spotsRes, myReqRes] = await Promise.all([
+          const [vehiclesRes, mySpotsRes, spotsRes, myReqRes, incomeRes] = await Promise.all([
             request({ url: '/vehicles' }),
             request({ url: '/spots/my' }),
             request({ url: '/spots' }),
-            request({ url: '/spots/change-requests/my' })
+            request({ url: '/spots/change-requests/my' }),
+            request({ url: '/spots/my/income' })
           ])
           this.vehicles = vehiclesRes.data.items || []
           this.mySpots = mySpotsRes.data.items || []
           this.allSpots = spotsRes.data.items || []
           this.myRequests = myReqRes.data.items || []
+          this.incomeData = incomeRes.data || this.incomeData
         }
       } catch (error) {
         console.error(error)
@@ -274,7 +309,6 @@ export default {
 .req-item { padding: 8rpx 0; }
 .ghost { margin-top: 12rpx; }
 
-/* 钱包样式 */
 .wallet-card {
   background: linear-gradient(135deg, #fff3f5 0%, #ffe4e9 100%);
   border: 1px solid #ffd1d9;

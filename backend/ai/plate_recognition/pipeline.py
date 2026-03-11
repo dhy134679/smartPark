@@ -1,9 +1,4 @@
-﻿"""完整车牌识别流水线封装。
-
-串联 YOLOv5 检测 → 透视变换 → OCR 字符识别，
-提供统一的调用入口。
-"""
-
+﻿
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,7 +16,6 @@ from ai.plate_recognition.recognizer import PlateRecognizer
 
 @dataclass
 class PlateRecognitionResult:
-    """统一输出结构。"""
 
     plate_number: str
     confidence: float
@@ -32,7 +26,6 @@ class PlateRecognitionResult:
 
 
 class PlateRecognitionPipeline:
-    """串联检测与识别的完整流水线。"""
 
     def __init__(self, weights_dir: Path | None = None) -> None:
         weights_dir = weights_dir or (
@@ -47,33 +40,24 @@ class PlateRecognitionPipeline:
     def process(
         self, image_path: Path, fallback_plate: str | None = None
     ) -> PlateRecognitionResult:
-        """执行完整的车牌识别流程。
 
-        Args:
-            image_path: 待识别图片的路径。
-            fallback_plate: 备用车牌号（当模型未加载时使用）。
-
-        Returns:
-            PlateRecognitionResult 识别结果。
-        """
-        # 读取图片
         img = cv2.imdecode(
             np.fromfile(str(image_path), dtype=np.uint8), cv2.IMREAD_COLOR
         )
         if img is None:
             raise ValueError(f"无法读取图片: {image_path}")
 
-        # 4 通道转 3 通道
+
         if img.shape[-1] == 4:
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-        # 如果模型可用，执行真正的 AI 识别
+
         if self.detector.ready and self.recognizer.ready:
             detections = self.detector.detect(img)
             if not detections:
                 raise ValueError("未检测到车牌")
 
-            # 取置信度最高的检测结果
+
             best = max(detections, key=lambda d: d["confidence"])
             recog = self.recognizer.recognize(best["roi_img"])
 
@@ -86,7 +70,7 @@ class PlateRecognitionPipeline:
                 plate_color=recog.get("plate_color", ""),
             )
 
-        # 后备方案：使用文件名中的车牌提示
+
         import re
 
         hint = fallback_plate
@@ -110,7 +94,6 @@ _pipeline_instance: PlateRecognitionPipeline | None = None
 
 
 def get_pipeline() -> PlateRecognitionPipeline:
-    """保证全局单例，避免重复加载模型。"""
 
     global _pipeline_instance
     if not _pipeline_instance:
@@ -119,7 +102,6 @@ def get_pipeline() -> PlateRecognitionPipeline:
 
 
 def save_upload_file(upload_file, dest_dir: Path) -> Path:
-    """保存上传的临时图片。"""
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     suffix = Path(upload_file.filename or "plate.jpg").suffix or ".jpg"

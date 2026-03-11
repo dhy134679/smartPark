@@ -1,5 +1,4 @@
-﻿"""车辆业务逻辑。"""
-
+﻿
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +6,6 @@ from app.models import User, Vehicle
 
 
 async def list_user_vehicles(session: AsyncSession, user: User) -> list[Vehicle]:
-    """查询用户绑定车辆。"""
 
     stmt = select(Vehicle).where(Vehicle.owner_id == user.id).order_by(Vehicle.id.desc())
     result = await session.execute(stmt)
@@ -17,7 +15,6 @@ async def list_user_vehicles(session: AsyncSession, user: User) -> list[Vehicle]
 async def list_vehicles(
     session: AsyncSession, owner_id: int | None = None
 ) -> list[Vehicle]:
-    """查询车辆列表，可按用户筛选。"""
 
     stmt = select(Vehicle)
     if owner_id is not None:
@@ -35,7 +32,6 @@ async def create_vehicle(
     color: str | None,
     is_resident: bool,
 ) -> Vehicle:
-    """绑定新车辆。"""
 
     plate = plate_number.upper()
     stmt = select(Vehicle).where(Vehicle.plate_number == plate)
@@ -63,7 +59,6 @@ async def create_vehicle(
 
 
 async def delete_vehicle(session: AsyncSession, user: User, vehicle_id: int) -> bool:
-    """解绑车辆。"""
 
     vehicle = await session.get(Vehicle, vehicle_id)
     if not vehicle or vehicle.owner_id != user.id:
@@ -74,7 +69,6 @@ async def delete_vehicle(session: AsyncSession, user: User, vehicle_id: int) -> 
 
 
 async def admin_delete_vehicle(session: AsyncSession, vehicle_id: int) -> bool:
-    """管理员删除车辆。"""
 
     vehicle = await session.get(Vehicle, vehicle_id)
     if not vehicle:

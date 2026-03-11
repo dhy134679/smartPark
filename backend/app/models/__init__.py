@@ -1,4 +1,3 @@
-"""模型汇总导出。"""
 
 from app.models.base import Base
 from app.models.fee_rule import FeeRule

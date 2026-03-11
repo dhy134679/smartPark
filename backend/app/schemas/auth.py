@@ -1,5 +1,4 @@
-﻿"""认证相关数据模型。"""
-
+﻿
 from datetime import datetime
 from typing import Literal
 
@@ -7,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserRegister(BaseModel):
-    """注册请求。"""
 
     phone: str = Field(..., min_length=6, max_length=20)
     name: str = Field(..., min_length=1, max_length=50)
@@ -15,21 +13,18 @@ class UserRegister(BaseModel):
 
 
 class UserLogin(BaseModel):
-    """登录请求。"""
 
     phone: str = Field(..., min_length=6, max_length=20)
     password: str = Field(..., min_length=6, max_length=64)
 
 
 class UserUpdate(BaseModel):
-    """更新资料。"""
 
     name: str | None = Field(None, min_length=1, max_length=50)
     phone: str | None = Field(None, min_length=6, max_length=20)
 
 
 class UserProfile(BaseModel):
-    """用户返回信息。"""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,7 +36,6 @@ class UserProfile(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """登录返回。"""
 
     access_token: str
     token_type: str = "bearer"
@@ -49,7 +43,6 @@ class TokenResponse(BaseModel):
 
 
 class AdminUserListItem(BaseModel):
-    """管理员用户列表项。"""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -62,17 +55,16 @@ class AdminUserListItem(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
-    """管理员更新用户。"""
 
     name: str | None = Field(None, min_length=1, max_length=50)
     phone: str | None = Field(None, min_length=6, max_length=20)
-    role: Literal["resident", "admin", "guest"] | None = None
+    password: str | None = Field(None, min_length=6, max_length=64)
+    role: Literal["resident", "admin"] | None = None
     is_resident: bool | None = None
 
 
 
 class ChangePasswordPayload(BaseModel):
-    """修改密码请求。"""
 
     old_password: str = Field(..., min_length=6, max_length=64)
     new_password: str = Field(..., min_length=6, max_length=64)

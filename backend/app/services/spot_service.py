@@ -1,4 +1,3 @@
-"""车位业务逻辑。"""
 
 from __future__ import annotations
 
@@ -11,7 +10,6 @@ from app.models import ParkingRecord, ParkingSpot, SpotChangeRequest, User
 
 
 async def list_spots(session: AsyncSession, zone: str | None = None) -> list[ParkingSpot]:
-    """查询车位列表。"""
 
     stmt = select(ParkingSpot).order_by(ParkingSpot.zone, ParkingSpot.spot_number)
     if zone:
@@ -21,13 +19,11 @@ async def list_spots(session: AsyncSession, zone: str | None = None) -> list[Par
 
 
 async def get_spot_by_id(session: AsyncSession, spot_id: int) -> ParkingSpot | None:
-    """按 ID 查询车位。"""
 
     return await session.get(ParkingSpot, spot_id)
 
 
 async def list_my_spots(session: AsyncSession, user_id: int) -> list[ParkingSpot]:
-    """查询当前用户名下车位。"""
 
     stmt = (
         select(ParkingSpot)
@@ -39,7 +35,6 @@ async def list_my_spots(session: AsyncSession, user_id: int) -> list[ParkingSpot
 
 
 async def get_my_income(session: AsyncSession, user_id: int) -> dict:
-    """查询用户共享收益总额与最近记录。"""
 
     stmt = select(func.sum(ParkingRecord.owner_income)).join(
         ParkingSpot, ParkingRecord.spot_id == ParkingSpot.id
@@ -75,7 +70,6 @@ async def get_my_income(session: AsyncSession, user_id: int) -> dict:
 
 
 async def get_spot_summary(session: AsyncSession) -> dict:
-    """统计车位数量。"""
 
     stmt = select(
         func.count(ParkingSpot.id).label("total"),
@@ -108,7 +102,6 @@ async def update_spot_share(
     shared_start: datetime | None,
     shared_end: datetime | None,
 ) -> ParkingSpot | None:
-    """更新共享时间信息。"""
 
     spot = await get_spot_by_id(session, spot_id)
     if not spot:
@@ -124,7 +117,6 @@ async def update_spot_share(
 async def update_spot_status(
     session: AsyncSession, spot_id: int, status: str
 ) -> ParkingSpot | None:
-    """修改车位状态。"""
 
     spot = await get_spot_by_id(session, spot_id)
     if not spot:
@@ -138,7 +130,6 @@ async def update_spot_status(
 async def update_spot_owner(
     session: AsyncSession, spot_id: int, owner_id: int | None
 ) -> ParkingSpot | None:
-    """给指定车位派发或解除业主。"""
 
     spot = await get_spot_by_id(session, spot_id)
     if not spot:
@@ -166,7 +157,6 @@ async def create_spot_change_request(
     target_zone: str | None,
     reason: str | None,
 ) -> SpotChangeRequest:
-    """创建车位变更申请。"""
 
     my_spots = await list_my_spots(session, user.id)
     current_spot_id = my_spots[0].id if my_spots else None
@@ -206,7 +196,6 @@ async def list_spot_change_requests(
     user_id: int | None = None,
     status: str | None = None,
 ) -> list[SpotChangeRequest]:
-    """查询车位变更申请列表。"""
 
     stmt = select(SpotChangeRequest).order_by(SpotChangeRequest.created_at.desc())
     if user_id is not None:
@@ -225,7 +214,6 @@ async def review_spot_change_request(
     status: str,
     comment: str | None,
 ) -> SpotChangeRequest | None:
-    """管理员审批车位变更申请。"""
 
     request = await session.get(SpotChangeRequest, request_id)
     if not request:

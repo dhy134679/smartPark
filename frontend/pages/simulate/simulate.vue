@@ -1,6 +1,5 @@
 ﻿<template>
   <view class="page">
-    <!-- 入场模拟 -->
     <view class="card">
       <view class="card-header">
         <view class="title">车辆入场模拟</view>
@@ -13,13 +12,11 @@
         </view>
       </view>
 
-      <!-- 方式选择 -->
       <view class="mode-switch">
         <button size="mini" :type="entryMode === 'image' ? 'primary' : 'default'" @click="entryMode = 'image'">图片识别</button>
         <button size="mini" :type="entryMode === 'manual' ? 'primary' : 'default'" @click="entryMode = 'manual'">手动输入</button>
       </view>
 
-      <!-- 图片上传模式 -->
       <view v-if="entryMode === 'image'" class="upload-area" @click="chooseEntryImage">
         <image v-if="entryImagePath" :src="entryImagePath" mode="aspectFit" class="preview-image" />
         <view v-else class="upload-placeholder">
@@ -28,12 +25,11 @@
         </view>
       </view>
 
-      <!-- 手动输入模式 -->
       <view v-if="entryMode === 'manual'" class="form-group">
         <input class="input" v-model="entryForm.plate_number" placeholder="车牌号，如 京A12345" />
         <input class="input" v-model="entryForm.vehicle_brand" placeholder="品牌（可选）" />
         <input class="input" v-model="entryForm.vehicle_color" placeholder="颜色（可选）" />
-        
+
         <picker
           :range="freeSpots"
           range-key="label"
@@ -43,7 +39,6 @@
         </picker>
       </view>
 
-      <!-- 识别结果 -->
       <view class="recognize-result" v-if="recognizeResult">
         <view class="result-header">
           <text class="result-plate">{{ recognizeResult.plate_number }}</text>
@@ -58,7 +53,6 @@
         {{ entryMode === 'image' ? '上传识别并入场' : '模拟入场' }}
       </button>
 
-      <!-- 入场结果 -->
       <view class="result-card success" v-if="entryResult">
         <view class="result-title">入场成功</view>
         <view class="result-row">车牌：<text class="bold">{{ entryResult.plate_number }}</text></view>
@@ -76,7 +70,6 @@
       </view>
     </view>
 
-    <!-- 出场模拟 -->
     <view class="card">
       <view class="card-header">
         <view class="title">车辆出场模拟</view>
@@ -110,7 +103,6 @@
         {{ exitMode === 'image' ? '上传识别并出场' : '模拟出场' }}
       </button>
 
-      <!-- 出场结果 -->
       <view class="result-card" :class="exitResult && exitResult.fee > 0 ? 'warning' : 'success'" v-if="exitResult">
         <view class="result-title">结算完成</view>
         <view class="result-row">车牌：<text class="bold">{{ exitResult.plate_number }}</text></view>
@@ -191,7 +183,6 @@ export default {
       if (!text || text === '未知') return false
       return /^[\u4e00-\u9fa5][A-Z][A-Z0-9]{5,7}$/.test(String(text).toUpperCase())
     },
-    // 选择入场图片
     chooseEntryImage() {
       uni.chooseImage({
         count: 1,
@@ -203,7 +194,6 @@ export default {
         }
       })
     },
-    // 选择出场图片
     chooseExitImage() {
       uni.chooseImage({
         count: 1,
@@ -214,7 +204,6 @@ export default {
         }
       })
     },
-    // 调用车牌识别接口
     async recognizeImage(filePath) {
       try {
         const result = await uploadFile({
@@ -238,7 +227,6 @@ export default {
         uni.showToast({ title: '识别失败，请手动输入', icon: 'none' })
       }
     },
-    // 入场处理
     async handleEntry() {
       if (!this.isPossiblePlate(this.entryForm.plate_number)) {
         uni.showToast({ title: '请输入车牌号或上传图片', icon: 'none' })
@@ -246,12 +234,12 @@ export default {
       }
       this.entryForm.plate_number = this.entryForm.plate_number.toUpperCase()
       this.entryLoading = true
-      
+
       const payload = { ...this.entryForm }
       if (this.selectedSpotId) {
         payload.target_spot_id = this.selectedSpotId
       }
-      
+
       try {
         const res = await request({
           url: '/parking/entry',
@@ -269,10 +257,8 @@ export default {
         this.entryLoading = false
       }
     },
-    // 出场处理
     async handleExit() {
       let plateNumber = this.exitForm.plate_number
-      // 图片模式先识别
       if (this.exitMode === 'image' && this.exitImagePath) {
         try {
           const result = await uploadFile({
@@ -314,7 +300,6 @@ export default {
         this.exitLoading = false
       }
     },
-    // 模拟支付
     simulatePay() {
       uni.showModal({
         title: '模拟支付',
@@ -336,7 +321,6 @@ export default {
         }
       })
     },
-    // 跳转导航
     goNavigation(spotId) {
       uni.setStorageSync('navSpotId', spotId)
       uni.switchTab({ url: '/pages/navigation/navigation' })
@@ -364,7 +348,6 @@ export default {
   margin-bottom: 16rpx;
 }
 
-/* 步骤条 */
 .step-bar {
   display: flex;
   align-items: center;
@@ -390,14 +373,12 @@ export default {
 }
 .step-line.active { background: #2a82e4; }
 
-/* 模式切换 */
 .mode-switch {
   display: flex;
   gap: 16rpx;
   margin-bottom: 20rpx;
 }
 
-/* 上传区域 */
 .upload-area {
   border: 3rpx dashed #d0d5dd;
   border-radius: 16rpx;
@@ -418,7 +399,6 @@ export default {
 .upload-icon { font-size: 60rpx; margin-bottom: 12rpx; }
 .preview-image { width: 100%; height: 100%; }
 
-/* 表单 */
 .form-group { margin-bottom: 20rpx; }
 .input {
   padding: 20rpx;
@@ -427,7 +407,6 @@ export default {
   border-radius: 12rpx;
 }
 
-/* 识别结果 */
 .recognize-result {
   background: #f0f7ff;
   border-radius: 12rpx;
@@ -458,7 +437,6 @@ export default {
 .result-tag.resident { background: #e8f5e9; color: #2e7d32; }
 .result-tag.visitor { background: #fff3e0; color: #ef6c00; }
 
-/* 按钮 */
 .btn-primary {
   background: linear-gradient(90deg, #2a82e4, #6a8bff);
   color: #fff;
@@ -478,7 +456,6 @@ export default {
   margin-top: 16rpx;
 }
 
-/* 结果卡片 */
 .result-card {
   margin-top: 24rpx;
   padding: 24rpx;

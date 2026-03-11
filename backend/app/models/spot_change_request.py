@@ -1,4 +1,3 @@
-"""车位变更申请模型。"""
 
 from datetime import datetime
 
@@ -9,7 +8,6 @@ from app.models.base import Base
 
 
 class SpotChangeRequest(Base):
-    """住户发起的车位变更申请。"""
 
     __tablename__ = "spot_change_requests"
 

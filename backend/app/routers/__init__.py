@@ -1,9 +1,9 @@
-﻿"""路由汇总。"""
-
-from app.routers import auth, navigation, parking, predict, recognize, spots, vehicles
+﻿
+from app.routers import auth, fees, navigation, parking, predict, recognize, spots, vehicles
 
 __all__ = [
     "auth",
+    "fees",
     "navigation",
     "parking",
     "predict",

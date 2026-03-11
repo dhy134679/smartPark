@@ -1,5 +1,4 @@
-﻿"""认证业务逻辑。"""
-
+﻿
 from datetime import datetime, timedelta
 
 import bcrypt
@@ -12,13 +11,11 @@ from app.models import ParkingSpot, User
 
 
 def hash_password(password: str) -> str:
-    """生成密码哈希。"""
 
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """校验密码。"""
 
     try:
         return bcrypt.checkpw(
@@ -29,7 +26,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 async def get_user_by_phone(session: AsyncSession, phone: str) -> User | None:
-    """根据手机号查询用户。"""
 
     result = await session.execute(select(User).where(User.phone == phone))
     return result.scalar_one_or_none()
@@ -38,7 +34,6 @@ async def get_user_by_phone(session: AsyncSession, phone: str) -> User | None:
 async def create_user(
     session: AsyncSession, phone: str, name: str, password: str
 ) -> User:
-    """创建新用户。"""
 
     user = User(
         phone=phone,
@@ -56,7 +51,6 @@ async def create_user(
 async def authenticate_user(
     session: AsyncSession, phone: str, password: str
 ) -> User | None:
-    """校验登录信息。"""
 
     user = await get_user_by_phone(session, phone)
     if not user or not verify_password(password, user.password_hash):
@@ -65,7 +59,6 @@ async def authenticate_user(
 
 
 def create_access_token(user: User) -> str:
-    """生成 JWT Token。"""
 
     expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {"sub": str(user.id), "phone": user.phone, "exp": expire}
@@ -73,7 +66,6 @@ def create_access_token(user: User) -> str:
 
 
 def decode_access_token(token: str) -> dict:
-    """解析 Token。"""
 
     return jwt.decode(
         token,
@@ -85,7 +77,6 @@ def decode_access_token(token: str) -> dict:
 async def update_user_profile(
     session: AsyncSession, user: User, name: str | None, phone: str | None
 ) -> User:
-    """更新用户资料。"""
 
     if phone and phone != user.phone:
         exists = await get_user_by_phone(session, phone)
@@ -100,9 +91,11 @@ async def update_user_profile(
 
 
 async def list_users(
-    session: AsyncSession, keyword: str | None = None, role: str | None = None
+    session: AsyncSession,
+    keyword: str | None = None,
+    role: str | None = None,
+    resident_only: bool = True,
 ) -> list[User]:
-    """管理员查询用户列表。"""
 
     stmt = select(User)
     if keyword:
@@ -112,6 +105,8 @@ async def list_users(
         )
     if role:
         stmt = stmt.where(User.role == role)
+    elif resident_only:
+        stmt = stmt.where(User.role == "resident")
     stmt = stmt.order_by(User.id.desc())
     result = await session.execute(stmt)
     return list(result.scalars().all())
@@ -123,10 +118,10 @@ async def admin_update_user(
     target_user_id: int,
     name: str | None = None,
     phone: str | None = None,
+    password: str | None = None,
     role: str | None = None,
     is_resident: bool | None = None,
 ) -> User | None:
-    """管理员更新指定用户。"""
 
     target_user = await session.get(User, target_user_id)
     if not target_user:
@@ -141,6 +136,9 @@ async def admin_update_user(
     if name:
         target_user.name = name
 
+    if password:
+        target_user.password_hash = hash_password(password)
+
     if role:
         if (
             target_user.id == current_user.id
@@ -149,8 +147,6 @@ async def admin_update_user(
         ):
             raise ValueError("不能取消当前登录管理员的管理员角色")
         target_user.role = role
-        if role == "guest":
-            target_user.is_resident = False
 
     if is_resident is not None:
         target_user.is_resident = is_resident
@@ -163,7 +159,6 @@ async def admin_update_user(
 async def admin_delete_user(
     session: AsyncSession, current_user: User, target_user_id: int
 ) -> bool:
-    """管理员删除指定用户。"""
 
     target_user = await session.get(User, target_user_id)
     if not target_user:
@@ -171,7 +166,7 @@ async def admin_delete_user(
     if target_user.id == current_user.id:
         raise ValueError("不能删除当前登录管理员")
 
-    # 删除用户前清理其名下车位归属和共享时间，避免遗留脏数据。
+
     await session.execute(
         update(ParkingSpot)
         .where(ParkingSpot.owner_id == target_user.id)
@@ -186,7 +181,6 @@ async def admin_delete_user(
 async def change_password(
     session: AsyncSession, user: User, old_password: str, new_password: str
 ) -> User:
-    """修改用户密码。"""
 
     if not verify_password(old_password, user.password_hash):
         raise ValueError("原密码不正确")

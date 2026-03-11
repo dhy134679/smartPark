@@ -1,5 +1,4 @@
-﻿"""生成模拟占用率数据，便于训练或演示。"""
-
+﻿
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,7 +8,6 @@ from random import Random
 
 @dataclass
 class OccupancySample:
-    """结构化的数据条目。"""
 
     hour: int
     day_of_week: int
@@ -19,7 +17,6 @@ class OccupancySample:
 
 
 def generate_samples(days: int = 7, seed: int = 2024) -> list[OccupancySample]:
-    """生成一定天数的模拟占用率样本。"""
 
     rand = Random(seed)
     now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)

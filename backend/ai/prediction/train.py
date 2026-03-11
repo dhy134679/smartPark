@@ -1,5 +1,4 @@
-﻿"""LSTM 训练脚本示例。"""
-
+﻿
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,7 +6,7 @@ from pathlib import Path
 try:
     import torch
     from torch import nn, optim
-except ImportError:  # pragma: no cover
+except ImportError:
     torch = None
 
 from .data_generator import generate_samples
@@ -15,7 +14,6 @@ from .lstm_model import ParkingAvailabilityLSTM
 
 
 def train(output_dir: Path, epochs: int = 5) -> None:
-    """使用模拟数据训练模型，保存到 weights 目录。"""
 
     if torch is None:
         raise RuntimeError("需要安装 PyTorch 才能训练")
@@ -57,6 +55,6 @@ def train(output_dir: Path, epochs: int = 5) -> None:
     torch.save(model.state_dict(), output_dir / "lstm.pt")
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     train(Path(__file__).resolve().parent / "weights")
 

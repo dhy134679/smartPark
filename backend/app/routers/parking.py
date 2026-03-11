@@ -1,5 +1,4 @@
-﻿"""停车流程接口。"""
-
+﻿
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,7 +26,6 @@ router = APIRouter(prefix="/parking", tags=["出入管理"])
 async def parking_entry(
     payload: ParkingEntryPayload, session: AsyncSession = Depends(get_db)
 ) -> dict:
-    """车辆入场。"""
 
     try:
         record, spot = await parking_service.create_entry_record(
@@ -54,7 +52,6 @@ async def parking_entry(
 async def parking_exit(
     payload: ParkingExitPayload, session: AsyncSession = Depends(get_db)
 ) -> dict:
-    """车辆出场。"""
 
     record = await parking_service.complete_parking_exit(
         session, payload.plate_number, payload.exit_image
@@ -77,7 +74,6 @@ async def parking_exit(
 async def parking_pay(
     payload: ParkingPayPayload, session: AsyncSession = Depends(get_db)
 ) -> dict:
-    """模拟支付并更新记录状态。"""
 
     try:
         record = await parking_service.pay_parking_record(session, payload.record_id)
@@ -99,7 +95,6 @@ async def parking_records(
     size: int = Query(10, ge=1, le=100),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    """停车记录分页。"""
 
     items, total = await parking_service.list_parking_records(session, page, size)
     records = [ParkingRecordSchema.model_validate(item) for item in items]
@@ -109,7 +104,6 @@ async def parking_records(
 
 @router.get("/statistics")
 async def parking_statistics(session: AsyncSession = Depends(get_db)) -> dict:
-    """今日统计。"""
 
     stats = await parking_service.get_parking_statistics(session)
     payload = ParkingStatistics(**stats)

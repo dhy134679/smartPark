@@ -1,5 +1,4 @@
-﻿"""停车导航接口。"""
-
+﻿
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +14,6 @@ router = APIRouter(prefix="/navigation", tags=["导航"])
 
 @router.get("/map")
 async def navigation_map(session: AsyncSession = Depends(get_db)) -> dict:
-    """返回地图与车位坐标。"""
 
     nav_map = await navigation_service.get_navigation_map(session)
     spots = [SpotSchema.model_validate(spot) for spot in nav_map["spots"]]
@@ -34,7 +32,6 @@ async def plan_route(
     payload: RouteRequest,
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    """计算路径。"""
 
     spot, route = await navigation_service.plan_route_to_spot(session, payload.spot_id)
     if not spot:

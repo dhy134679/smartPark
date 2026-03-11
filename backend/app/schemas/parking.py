@@ -1,5 +1,4 @@
-﻿"""停车相关数据模型。"""
-
+﻿
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,7 +7,6 @@ from app.schemas.spot import SpotSchema
 
 
 class ParkingEntryPayload(BaseModel):
-    """入场请求载荷。"""
 
     plate_number: str = Field(..., min_length=5, max_length=15)
     vehicle_brand: str | None = None
@@ -22,20 +20,17 @@ class ParkingEntryPayload(BaseModel):
 
 
 class ParkingExitPayload(BaseModel):
-    """出场请求载荷。"""
 
     plate_number: str = Field(..., min_length=5, max_length=15)
     exit_image: str | None = None
 
 
 class ParkingPayPayload(BaseModel):
-    """支付请求载荷。"""
 
     record_id: int = Field(..., ge=1)
 
 
 class ParkingRecordSchema(BaseModel):
-    """停车记录返回结构。"""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -47,6 +42,8 @@ class ParkingRecordSchema(BaseModel):
     exit_time: datetime | None
     duration_minutes: int | None
     fee: float | None
+    owner_income: float | None = None
+    platform_income: float | None = None
     is_resident: bool
     is_paid: bool
     status: str
@@ -56,7 +53,6 @@ class ParkingRecordSchema(BaseModel):
 
 
 class ParkingEntryResult(BaseModel):
-    """入场结果。"""
 
     record_id: int
     plate_number: str
@@ -65,7 +61,6 @@ class ParkingEntryResult(BaseModel):
 
 
 class ParkingExitResult(BaseModel):
-    """出场结果。"""
 
     record_id: int
     plate_number: str
@@ -76,7 +71,6 @@ class ParkingExitResult(BaseModel):
 
 
 class ParkingPayResult(BaseModel):
-    """支付结果。"""
 
     record_id: int
     is_paid: bool
@@ -84,7 +78,6 @@ class ParkingPayResult(BaseModel):
 
 
 class ParkingRecordPage(BaseModel):
-    """停车记录分页。"""
 
     items: list[ParkingRecordSchema]
     page: int
@@ -93,10 +86,8 @@ class ParkingRecordPage(BaseModel):
 
 
 class ParkingStatistics(BaseModel):
-    """停车统计。"""
 
     entries_today: int
     exits_today: int
     revenue_today: float
     occupied_spots: int
-

@@ -2,7 +2,7 @@
   <view class="page">
     <view v-if="isAdmin">
       <view class="card">
-        <view class="title">用户管理</view>
+        <view class="title">住户管理</view>
         <view class="search-row">
           <input
             class="input"
@@ -16,7 +16,7 @@
       </view>
 
       <view class="card">
-        <view class="title">新增用户</view>
+        <view class="title">新增住户</view>
         <view class="form">
           <input class="input" v-model.trim="createForm.name" placeholder="姓名" />
           <input class="input" v-model.trim="createForm.phone" placeholder="手机号" type="number" />
@@ -26,13 +26,12 @@
       </view>
 
       <view class="card">
-        <view class="title">用户列表</view>
-        <view v-if="users.length === 0" class="empty">暂无用户</view>
+        <view class="title">住户列表</view>
+        <view v-if="users.length === 0" class="empty">暂无住户</view>
         <view v-for="item in users" :key="item.id" class="user-item">
           <view class="user-main">
             <view class="name-row">
               <text class="name">{{ item.name }}</text>
-              <text class="tag">{{ roleText(item.role) }}</text>
             </view>
             <view class="meta">ID: {{ item.id }} | 手机号: {{ item.phone }}</view>
             <view class="meta">住户身份：{{ item.is_resident ? '是' : '否' }}</view>
@@ -41,6 +40,31 @@
           <view class="user-actions">
             <button size="mini" type="primary" @click="goToEdit(item.id)">编辑</button>
             <button size="mini" type="warn" @click="deleteUser(item)">删除</button>
+          </view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="title">收费管理</view>
+        <view class="form">
+          <input class="input" v-model.trim="feeForm.name" placeholder="规则名称" />
+          <input class="input" v-model.trim="feeForm.free_minutes" type="number" placeholder="免费时长（分钟）" />
+          <input class="input" v-model.trim="feeForm.rate_per_hour" type="digit" placeholder="每小时收费（元）" />
+          <input class="input" v-model.trim="feeForm.max_daily" type="digit" placeholder="每日封顶（元）" />
+          <button type="primary" :loading="feeLoading" @click="saveFeeRule">保存收费规则</button>
+        </view>
+        <view class="income-grid">
+          <view class="income-item">
+            <view class="income-label">总收费</view>
+            <view class="income-value">¥{{ Number(incomeSummary.total_fee || 0).toFixed(2) }}</view>
+          </view>
+          <view class="income-item">
+            <view class="income-label">住户账号收益</view>
+            <view class="income-value">¥{{ Number(incomeSummary.owner_income_total || 0).toFixed(2) }}</view>
+          </view>
+          <view class="income-item">
+            <view class="income-label">管理员账号收益</view>
+            <view class="income-value">¥{{ Number(incomeSummary.admin_income_total || 0).toFixed(2) }}</view>
           </view>
         </view>
       </view>
@@ -147,6 +171,24 @@ export default {
       user: null,
       keyword: '',
       users: [],
+      createForm: {
+        name: '',
+        phone: '',
+        password: ''
+      },
+      createLoading: false,
+      feeForm: {
+        name: '标准收费',
+        free_minutes: 30,
+        rate_per_hour: 5,
+        max_daily: 50
+      },
+      feeLoading: false,
+      incomeSummary: {
+        total_fee: 0,
+        owner_income_total: 0,
+        admin_income_total: 0
+      },
 
       mapInfo: null,
       allSpots: [],
@@ -238,15 +280,6 @@ export default {
     Promise.resolve(task).finally(() => uni.stopPullDownRefresh())
   },
   methods: {
-    roleText(role) {
-      if (role === 'admin') return '管理员'
-      if (role === 'guest') return '访客'
-      return '住户'
-    },
-    roleLabel(role) {
-      const target = this.roleOptions.find((item) => item.value === role)
-      return target ? target.label : '住户'
-    },
     goToEdit(id) {
       uni.navigateTo({
         url: `/pages/userEdit/userEdit?id=${id}`
@@ -254,11 +287,37 @@ export default {
     },
     async loadAdminData() {
       try {
-        const usersRes = await request({
-          url: '/auth/users',
-          data: this.keyword ? { keyword: this.keyword } : {}
-        })
+        const query = {
+          resident_only: true
+        }
+        if (this.keyword) {
+          query.keyword = this.keyword
+        }
+
+        const [usersRes, feeRes, incomeRes] = await Promise.all([
+          request({
+            url: '/auth/users',
+            data: query
+          }),
+          request({
+            url: '/fees/rule'
+          }),
+          request({
+            url: '/fees/income-summary'
+          })
+        ])
+
         this.users = usersRes.data.items || []
+        const rule = feeRes?.data?.rule
+        if (rule) {
+          this.feeForm = {
+            name: rule.name,
+            free_minutes: rule.free_minutes,
+            rate_per_hour: rule.rate_per_hour,
+            max_daily: rule.max_daily
+          }
+        }
+        this.incomeSummary = incomeRes.data || this.incomeSummary
       } catch (error) {
         console.error(error)
       }
@@ -284,6 +343,40 @@ export default {
         this.createLoading = false
       }
     },
+    async saveFeeRule() {
+      const payload = {
+        name: this.feeForm.name,
+        free_minutes: Number(this.feeForm.free_minutes),
+        rate_per_hour: Number(this.feeForm.rate_per_hour),
+        max_daily: Number(this.feeForm.max_daily)
+      }
+      if (!payload.name) {
+        uni.showToast({ title: '请输入规则名称', icon: 'none' })
+        return
+      }
+      if (
+        Number.isNaN(payload.free_minutes) ||
+        Number.isNaN(payload.rate_per_hour) ||
+        Number.isNaN(payload.max_daily)
+      ) {
+        uni.showToast({ title: '请输入有效收费参数', icon: 'none' })
+        return
+      }
+      this.feeLoading = true
+      try {
+        await request({
+          url: '/fees/rule',
+          method: 'PUT',
+          data: payload
+        })
+        uni.showToast({ title: '收费规则已更新', icon: 'success' })
+        await this.loadAdminData()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        this.feeLoading = false
+      }
+    },
     deleteUser(user) {
       uni.showModal({
         title: '确认删除',
@@ -307,14 +400,12 @@ export default {
     filterZone(zone) {
       this.selectedZone = zone
     },
-    // 计算方向文本（用于静态路线说明）
     getDirection(from, to) {
       if (to.x > from.x) return '右'
       if (to.x < from.x) return '左'
       if (to.y > from.y) return '下'
       return '上'
     },
-    // 根据屏幕宽度动态计算画布尺寸，避免不同机型上被裁切
     updateCanvasSize() {
       const systemInfo = uni.getSystemInfoSync()
       const containerWidth = systemInfo.windowWidth - SAFE_PADDING
@@ -374,45 +465,35 @@ export default {
       const width = gw * size
       const height = gh * size
 
-      // 1. 绘制背景（草地/空地颜色）
       ctx.setFillStyle(COLORS.background)
       ctx.fillRect(0, 0, width, height)
 
-      // 2. 绘制主要道路
       ctx.setFillStyle(COLORS.road)
-      // 横向道路
       ctx.fillRect(0, 3 * size - 4, width, size + 8)
       ctx.fillRect(0, 10 * size - 4, width, size + 8)
-      // 纵向道路
       ctx.fillRect(12 * size - 4, 0, size + 8, height)
 
-      // 3. 绘制车道中心虚线
       ctx.setStrokeStyle('#bdc3c7')
       ctx.setLineWidth(2)
-      ctx.setLineDash([10, 10], 0) // 虚线模式
+      ctx.setLineDash([10, 10], 0)
 
-      // 上横向道路虚线
       ctx.beginPath()
       ctx.moveTo(0, 3.5 * size)
       ctx.lineTo(width, 3.5 * size)
       ctx.stroke()
 
-      // 下横向道路虚线
       ctx.beginPath()
       ctx.moveTo(0, 10.5 * size)
       ctx.lineTo(width, 10.5 * size)
       ctx.stroke()
 
-      // 纵向道路虚线
       ctx.beginPath()
       ctx.moveTo(12.5 * size, 0)
       ctx.lineTo(12.5 * size, height)
       ctx.stroke()
-      ctx.setLineDash([], 0) // 恢复实线模式
+      ctx.setLineDash([], 0)
 
-      // 4. 绘制导航路线（放在地形之上，车位之下）
       if (this.routePath.length > 1) {
-        // 路线发光或投影效果 (简易模拟：画两条，宽的浅色，窄的深色)
         ctx.setStrokeStyle('rgba(33, 150, 243, 0.3)')
         ctx.setLineWidth(10)
         ctx.setLineCap('round')
@@ -426,7 +507,6 @@ export default {
         }
         ctx.stroke()
 
-        // 核心路线
         ctx.setStrokeStyle(COLORS.route)
         ctx.setLineWidth(4)
         ctx.beginPath()
@@ -437,7 +517,6 @@ export default {
         }
         ctx.stroke()
 
-        // 起点与终点圆点
         ctx.setFillStyle(COLORS.entry)
         ctx.beginPath()
         ctx.arc(first.x * size + size / 2, first.y * size + size / 2, 8, 0, Math.PI * 2)
@@ -450,7 +529,6 @@ export default {
         ctx.fill()
       }
 
-      // 5. 绘制所有车位
       this.allSpots.forEach((spot) => {
         const spotX = spot.x_pos * size
         const spotY = spot.y_pos * size
@@ -458,37 +536,30 @@ export default {
         const centerY = spotY + size / 2
         const selected = this.selectedSpot && this.selectedSpot.id === spot.id
 
-        // 车位底框（画车位停车线）
         ctx.setStrokeStyle('#b0bec5')
         ctx.setLineWidth(2)
         ctx.strokeRect(spotX + 2, spotY + 2, size - 4, size - 4)
 
         if (spot.status === 'free') {
-          // 空闲车位：涂上浅绿色背景
           ctx.setFillStyle(selected ? COLORS.route : COLORS.free)
           ctx.fillRect(spotX + 4, spotY + 4, size - 8, size - 8)
-          
-          // 写文字
+
           ctx.setFillStyle('#fff')
           ctx.setFontSize(10)
           ctx.setTextAlign('center')
           ctx.setTextBaseline('middle')
           ctx.fillText(spot.spot_number.replace(/^[A-C]-/, ''), centerX, centerY)
         } else {
-          // 占用车位：绘制一辆小车 (简化的矩形+车窗)
           const carColor = spot.status === 'reserved' ? COLORS.reserved : COLORS.occupied
-          
-          // 车身
+
           ctx.setFillStyle(carColor)
           ctx.fillRect(spotX + 6, spotY + 4, size - 12, size - 8)
-          
-          // 前后挡风玻璃
+
           ctx.setFillStyle('rgba(255, 255, 255, 0.5)')
-          ctx.fillRect(spotX + 8, spotY + 6, size - 16, size * 0.2) // 前（大概）
-          ctx.fillRect(spotX + 8, spotY + (size - 8) * 0.7, size - 16, size * 0.15) // 后（大概）
+          ctx.fillRect(spotX + 8, spotY + 6, size - 16, size * 0.2)
+          ctx.fillRect(spotX + 8, spotY + (size - 8) * 0.7, size - 16, size * 0.15)
         }
-        
-        // 选中高亮标志框
+
         if (selected) {
            ctx.setStrokeStyle(COLORS.routeHead)
            ctx.setLineWidth(3)
@@ -496,7 +567,6 @@ export default {
         }
       })
 
-      // 6. 绘制入口标记
       const entry = this.mapInfo?.entry || [0, 0]
       const entryX = entry[0] * size + size / 2
       const entryY = entry[1] * size + size / 2
@@ -504,7 +574,7 @@ export default {
       ctx.beginPath()
       ctx.arc(entryX, entryY, 14, 0, Math.PI * 2)
       ctx.fill()
-      
+
       ctx.setFillStyle('#fff')
       ctx.setFontSize(10)
       ctx.setTextAlign('center')
@@ -751,6 +821,30 @@ export default {
 .spot-zone {
   font-size: 24rpx;
   color: #999;
+}
+
+.income-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.income-item {
+  background: #f8faf8;
+  border-radius: 12rpx;
+  padding: 14rpx;
+}
+
+.income-label {
+  color: #888;
+  font-size: 22rpx;
+}
+
+.income-value {
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  font-weight: 600;
 }
 
 .route-info {

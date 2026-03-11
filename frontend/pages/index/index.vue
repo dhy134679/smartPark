@@ -94,7 +94,6 @@ export default {
   },
   methods: {
     goTo(url) {
-      // tabBar 页面必须使用 switchTab，否则会出现“进不去”的问题
       const tabPages = [
         '/pages/index/index',
         '/pages/spots/spots',

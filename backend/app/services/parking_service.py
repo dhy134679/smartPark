@@ -1,5 +1,4 @@
-﻿"""停车流程业务逻辑。"""
-
+﻿
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,7 +15,6 @@ from app.services.fee_service import calculate_fee, get_active_fee_rule
 async def get_vehicle_by_plate(
     session: AsyncSession, plate_number: str
 ) -> Vehicle | None:
-    """根据车牌号码查询车辆。"""
 
     stmt = select(Vehicle).where(Vehicle.plate_number == plate_number.upper())
     result = await session.execute(stmt)
@@ -29,7 +27,6 @@ async def ensure_vehicle(
     brand: str | None = None,
     color: str | None = None,
 ) -> Vehicle:
-    """若车辆不存在则自动创建。"""
 
     plate = plate_number.upper()
     vehicle = await get_vehicle_by_plate(session, plate)
@@ -48,7 +45,6 @@ async def ensure_vehicle(
 
 
 async def allocate_free_spot(session: AsyncSession) -> ParkingSpot | None:
-    """选择一个可用车位。"""
 
     stmt = (
         select(ParkingSpot)
@@ -68,17 +64,16 @@ async def create_entry_record(
     vehicle_color: str | None = None,
     target_spot_id: int | None = None,
 ) -> tuple[ParkingRecord, ParkingSpot]:
-    """创建入场记录并占用车位。"""
 
     active_record = await get_active_record(session, plate_number)
     if active_record:
-        return active_record, active_record.spot  # type: ignore[attr-defined]
+        return active_record, active_record.spot
 
     vehicle = await ensure_vehicle(session, plate_number, vehicle_brand, vehicle_color)
-    
+
     spot = None
-    
-    # 1. 如果该车辆绑定了业主，优先寻找该业主名下的空闲专属车位
+
+
     if vehicle.owner_id:
         stmt = (
             select(ParkingSpot)
@@ -90,16 +85,16 @@ async def create_entry_record(
         res = await session.execute(stmt)
         spot = res.scalar_one_or_none()
 
-    # 2. 如果没有专属空闲车位，并且提供了 target_spot_id，则分配指定车位
+
     if not spot and target_spot_id:
         spot = await session.get(ParkingSpot, target_spot_id)
         if not spot or spot.status != "free":
             raise ValueError("所选车位不存在或非空闲状态")
-            
-    # 3. 如果仍未分配，则统筹分配一个空闲车位
+
+
     if not spot:
         spot = await allocate_free_spot(session)
-        
+
     if not spot:
         raise ValueError("当前无空闲车位")
 
@@ -126,7 +121,6 @@ async def create_entry_record(
 async def get_active_record(
     session: AsyncSession, plate_number: str
 ) -> ParkingRecord | None:
-    """查找未出场的停车记录。"""
 
     stmt = (
         select(ParkingRecord)
@@ -143,7 +137,6 @@ async def get_active_record(
 async def complete_parking_exit(
     session: AsyncSession, plate_number: str, exit_image: str | None = None
 ) -> ParkingRecord | None:
-    """办理出场流程。"""
 
     record = await get_active_record(session, plate_number)
     if not record:
@@ -164,9 +157,17 @@ async def complete_parking_exit(
     if record.spot_id:
         spot = await session.get(ParkingSpot, record.spot_id)
         if spot:
+            vehicle = await session.get(Vehicle, record.vehicle_id)
+            vehicle_owner_id = vehicle.owner_id if vehicle else None
+            borrowed_resident_spot = (
+                record.fee > 0
+                and spot.owner_id is not None
+                and vehicle_owner_id != spot.owner_id
+            )
+
             spot.status = "free"
-            # 车位收益计算逻辑：只有当该车位被所有者设置为 'is_shared' (共享车位) 且产生费用时，收益 100% 归车位所有者。
-            if spot.owner_id and spot.is_shared and record.fee > 0:
+
+            if borrowed_resident_spot:
                 record.owner_income = record.fee
                 record.platform_income = 0.0
             else:
@@ -184,7 +185,6 @@ async def complete_parking_exit(
 async def pay_parking_record(
     session: AsyncSession, record_id: int
 ) -> ParkingRecord | None:
-    """将停车记录标记为已支付。"""
 
     record = await session.get(ParkingRecord, record_id)
     if not record:
@@ -204,7 +204,6 @@ async def pay_parking_record(
 async def list_parking_records(
     session: AsyncSession, page: int = 1, size: int = 10
 ) -> tuple[list[ParkingRecord], int]:
-    """分页查询停车记录。"""
 
     page = max(page, 1)
     size = max(min(size, 100), 1)
@@ -225,7 +224,6 @@ async def list_parking_records(
 
 
 async def get_parking_statistics(session: AsyncSession) -> dict:
-    """计算当日统计数据。"""
 
     now = datetime.utcnow()
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -254,4 +252,3 @@ async def get_parking_statistics(session: AsyncSession) -> dict:
         "revenue_today": float(revenue),
         "occupied_spots": int(occupied),
     }
-

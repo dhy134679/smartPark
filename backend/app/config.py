@@ -1,5 +1,4 @@
-﻿"""应用配置。"""
-
+﻿
 from pathlib import Path
 from typing import List, Tuple
 
@@ -7,7 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """集中管理配置项。"""
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[1] / ".env",

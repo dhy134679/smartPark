@@ -5,9 +5,7 @@
       <view class="edit-panel">
         <input class="input" v-model.trim="editForm.name" placeholder="姓名" />
         <input class="input" v-model.trim="editForm.phone" placeholder="手机号" type="number" />
-        <picker :range="roleOptions" range-key="label" @change="onEditRoleChange">
-          <view class="picker">{{ roleLabel(editForm.role) }}</view>
-        </picker>
+        <input class="input" v-model.trim="editForm.password" placeholder="重置密码（留空不修改）" password />
         <label class="switch-row">
           <switch
             :checked="editForm.is_resident"
@@ -108,15 +106,10 @@ export default {
       editForm: {
         name: '',
         phone: '',
-        role: 'resident',
+        password: '',
         is_resident: true
       },
-      roleOptions: [
-        { label: '住户', value: 'resident' },
-        { label: '管理员', value: 'admin' },
-        { label: '访客', value: 'guest' }
-      ],
-      
+
       allSpots: [],
       assignZoneSelection: null,
       assignZones: ['A', 'B', 'C'],
@@ -172,34 +165,20 @@ export default {
     }
   },
   methods: {
-    roleLabel(role) {
-      const target = this.roleOptions.find((item) => item.value === role)
-      return target ? target.label : '住户'
-    },
-    onEditRoleChange(event) {
-      const idx = Number(event.detail.value)
-      const option = this.roleOptions[idx]
-      if (!option) return
-      this.editForm.role = option.value
-      if (option.value === 'guest') {
-        this.editForm.is_resident = false
-      }
-    },
     async loadData() {
       try {
-        const [usersRes, spotsRes, vehiclesRes] = await Promise.all([
-          request({ url: '/auth/users' }),
+        const [userRes, spotsRes, vehiclesRes] = await Promise.all([
+          request({ url: `/auth/users/${this.userId}` }),
           request({ url: '/spots' }),
           request({ url: '/vehicles/admin', data: { owner_id: this.userId } })
         ])
-        
-        const users = usersRes.data.items || []
-        this.user = users.find(u => u.id === this.userId)
+
+        this.user = userRes?.data?.user || null
         if (this.user) {
           this.editForm = {
             name: this.user.name,
             phone: this.user.phone,
-            role: this.user.role,
+            password: '',
             is_resident: this.user.is_resident
           }
         } else {
@@ -223,7 +202,12 @@ export default {
         await request({
           url: `/auth/users/${this.userId}`,
           method: 'PUT',
-          data: this.editForm
+          data: {
+            name: this.editForm.name,
+            phone: this.editForm.phone,
+            password: this.editForm.password || undefined,
+            is_resident: this.editForm.is_resident
+          }
         })
         uni.showToast({ title: '保存成功', icon: 'success' })
         await this.loadData()
@@ -231,8 +215,7 @@ export default {
         console.error(error)
       }
     },
-    
-    // 车位分配逻辑
+
     onAssignZoneChange(event) {
       const idx = Number(event.detail.value)
       const zone = this.assignZones[idx]
@@ -294,7 +277,6 @@ export default {
       }
     },
 
-    // 车辆管理逻辑
     async addVehicleForUser() {
       const form = this.vehicleForm
       if (!form.plate_number) {

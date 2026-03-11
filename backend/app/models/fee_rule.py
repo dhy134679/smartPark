@@ -1,4 +1,3 @@
-"""收费规则模型。"""
 
 from datetime import datetime
 
@@ -9,7 +8,6 @@ from app.models.base import Base
 
 
 class FeeRule(Base):
-    """收费规则。"""
 
     __tablename__ = "fee_rules"
 
